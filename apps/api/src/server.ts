@@ -8,6 +8,7 @@ import { guessesRouter } from "./modules/guesses/guesses.routes.js";
 import { rankingRouter } from "./modules/ranking/ranking.routes.js";
 import { groupsRouter } from "./modules/groups/groups.routes.js";
 import { liveScoreRouter } from "./modules/live-score/live-score.routes.js";
+import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler, HttpError } from "./shared/errors/http.js";
 
 const app = express();
@@ -31,7 +32,7 @@ app.use(
 );
 app.use(express.json());
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.use("/health", healthRouter);
 app.use("/auth", authRouter);
 app.use("/games", gamesRouter);
 app.use("/guesses", guessesRouter);

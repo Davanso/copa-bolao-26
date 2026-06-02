@@ -1,0 +1,23 @@
+﻿services:
+  - type: web
+    name: bolao-copa-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm --workspace apps/api run db:generate && npm --workspace apps/api run build && npm --workspace apps/api run db:deploy
+    startCommand: npm --workspace apps/api start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
+      - key: WORLD_CUP_API_URL
+        value: https://worldcup26.ir/get/games
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
