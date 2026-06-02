@@ -60,7 +60,7 @@ export function AppLayout() {
                 sx={{ width: 46, height: 46, objectFit: "contain" }}
               />
               <Box>
-                <Typography variant="h5">Bolão da Copa</Typography>
+                <Typography variant="h5">Nação do Bolão</Typography>
                 <Typography variant="caption" color="text.secondary">
                   palpites, placares e ranking entre amigos
                 </Typography>

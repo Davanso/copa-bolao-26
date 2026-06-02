@@ -50,7 +50,7 @@ export function LoginPage() {
             sx={{ width: 96, alignSelf: "center" }}
           />
           <Typography variant="h4" align="center">
-            Bolão da Copa 2026
+            Nação do Bolão 2026
           </Typography>
 
           {error && <Alert severity="error">{error}</Alert>}

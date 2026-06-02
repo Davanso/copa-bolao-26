@@ -1,4 +1,4 @@
-﻿# Bolão da Copa 2026
+﻿# Nação do Bolão 2026
 
 Monorepo com API Express + TypeScript e frontend React/Vite/MUI para um bolão casual da Copa 2026.
 
