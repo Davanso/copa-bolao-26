@@ -3,7 +3,6 @@ services:
     name: bolao-copa-api
     runtime: node
     plan: free
-    rootDir: bolao-copa
     buildCommand: npm install --include=dev && npm --workspace apps/api run db:generate && npm --workspace apps/api run build && npm --workspace apps/api run db:deploy
     startCommand: npm --workspace apps/api start
     healthCheckPath: /health
@@ -26,3 +25,4 @@ services:
         value: admin
       - key: ADMIN_PASSWORD
         sync: false
+
