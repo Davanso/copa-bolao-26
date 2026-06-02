@@ -32,6 +32,7 @@
     "@types/pg": "latest",
     "tsx": "latest",
     "typescript": "latest",
-    "prisma": "^6.19.0"
+    "prisma": "^6.19.0",
+    "@types/node": "^24.10.1"
   }
 }
