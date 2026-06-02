@@ -14,7 +14,9 @@ import { errorHandler, HttpError } from "./shared/errors/http.js";
 const app = express();
 const allowedOrigins = (
   process.env.WEB_ORIGIN ??
-  "http://localhost:5173,http://127.0.0.1:5173,http://172.18.224.1:5173"
+  "http://localhost:5173,http://127.0.0.1:5173,http://172.18.224.1:5173",
+  "https://copa-bolao-26.vercel.app",
+  "https://copa-bolao-26-7oo6bzzii-guilhermes-projects-655e1abc.vercel.app"
 )
   .split(",")
   .map((origin) => origin.trim());
