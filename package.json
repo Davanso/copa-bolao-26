@@ -20,5 +20,8 @@
     "npm-run-all": "latest",
     "typescript": "latest",
     "prettier": "^3.6.2"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }
