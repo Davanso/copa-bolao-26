@@ -1,4 +1,4 @@
-﻿CREATE TYPE "UserRole" AS ENUM ('user', 'admin');
+CREATE TYPE "UserRole" AS ENUM ('user', 'admin');
 CREATE TYPE "GroupRole" AS ENUM ('owner', 'member');
 
 CREATE TABLE "users" (
