@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -12,6 +12,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { GameHeader } from "../components/GameHeader";
@@ -28,9 +29,30 @@ export function GamesPage() {
     queryFn: async () => (await api.get("/games?status=scheduled")).data,
   });
   const groupedGames = useMemo(
-    () => groupGamesByGroup(data?.games ?? []),
+    () => groupGamesByStage(data?.games ?? []),
     [data?.games],
   );
+  const groupLabels = useMemo(
+    () => groupedGames.map(([groupName]) => groupName),
+    [groupedGames],
+  );
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const hasGames = groupedGames.length > 0;
+  const allExpanded =
+    hasGames && groupLabels.every((groupName) => expandedGroups.has(groupName));
+
+  useEffect(() => {
+    setExpandedGroups((currentGroups) => {
+      if (currentGroups.size > 0 || groupLabels.length === 0) {
+        return currentGroups;
+      }
+
+      return new Set(groupLabels.slice(0, 2));
+    });
+  }, [groupLabels]);
+
   const mutation = useMutation({
     mutationFn: ({
       gameId,
@@ -56,12 +78,37 @@ export function GamesPage() {
 
   return (
     <Stack gap={3}>
-      <Box>
-        <Typography variant="h4">Jogos agendados</Typography>
-        <Typography color="text.secondary">
-          Abra cada grupo, escolha seus placares e salve antes da bola rolar.
-        </Typography>
-      </Box>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        gap={2}
+      >
+        <Box>
+          <Typography variant="h4">Jogos agendados</Typography>
+          <Typography color="text.secondary">
+            Abra cada grupo, escolha seus placares e salve antes da bola rolar.
+          </Typography>
+        </Box>
+
+        {hasGames && (
+          <Stack direction="row" gap={1} alignItems="center">
+            <Button
+              size="small"
+              variant={allExpanded ? "contained" : "outlined"}
+              onClick={() => setExpandedGroups(new Set(groupLabels))}
+            >
+              Expandir tudo
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setExpandedGroups(new Set())}
+            >
+              Colapsar tudo
+            </Button>
+          </Stack>
+        )}
+      </Stack>
 
       {isLoading && (
         <EmptyState
@@ -81,15 +128,26 @@ export function GamesPage() {
         />
       )}
 
-      {groupedGames.map(([groupName, games], index) => (
-        <Accordion key={groupName} defaultExpanded={index < 2}>
-          <AccordionSummary
-            expandIcon={
-              <Box component="span" sx={{ fontSize: 22 }}>
-                ⌄
-              </Box>
-            }
-          >
+      {groupedGames.map(([groupName, games]) => (
+        <Accordion
+          key={groupName}
+          expanded={expandedGroups.has(groupName)}
+          TransitionProps={{ timeout: 140, unmountOnExit: true }}
+          onChange={(_, expanded) => {
+            setExpandedGroups((currentGroups) => {
+              const nextGroups = new Set(currentGroups);
+
+              if (expanded) {
+                nextGroups.add(groupName);
+              } else {
+                nextGroups.delete(groupName);
+              }
+
+              return nextGroups;
+            });
+          }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack
               direction="row"
               justifyContent="space-between"
@@ -185,7 +243,7 @@ function GuessForm({
   );
 }
 
-function groupGamesByGroup(games: Game[]) {
+function groupGamesByStage(games: Game[]) {
   const grouped = new Map<string, Game[]>();
 
   for (const game of games) {
@@ -198,12 +256,40 @@ function groupGamesByGroup(games: Game[]) {
       ([label, groupedGames]) =>
         [
           label,
-          groupedGames.sort(
+          [...groupedGames].sort(
             (a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt),
           ),
         ] as [string, Game[]],
     )
     .sort(([firstLabel], [secondLabel]) =>
-      firstLabel.localeCompare(secondLabel, "pt-BR", { numeric: true }),
+      compareStageLabels(firstLabel, secondLabel),
     );
+}
+
+function compareStageLabels(firstLabel: string, secondLabel: string) {
+  const firstOrder = stageOrder(firstLabel);
+  const secondOrder = stageOrder(secondLabel);
+
+  if (firstOrder !== secondOrder) {
+    return firstOrder - secondOrder;
+  }
+
+  return firstLabel.localeCompare(secondLabel, "pt-BR", { numeric: true });
+}
+
+function stageOrder(label: string) {
+  if (label.startsWith("Grupo ")) {
+    return 0;
+  }
+
+  const knockoutOrder: Record<string, number> = {
+    "16 avos de final": 1,
+    "Oitavas de final": 2,
+    "Quartas de final": 3,
+    Semifinal: 4,
+    Final: 5,
+    "Disputa de terceiro lugar": 6,
+  };
+
+  return knockoutOrder[label] ?? 99;
 }
