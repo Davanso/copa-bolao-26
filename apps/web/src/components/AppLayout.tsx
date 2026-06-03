@@ -14,8 +14,6 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
-import AccountCircleIcon from "@mui/icons-material/AccountCircle";
-import LogoutIcon from "@mui/icons-material/Logout";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
@@ -111,7 +109,7 @@ export function AppLayout() {
                   color: "secondary.contrastText",
                 }}
               >
-                {user?.username?.[0]?.toUpperCase() ?? <AccountCircleIcon />}
+                {user?.username?.[0]?.toUpperCase() ?? "👤"}
               </Avatar>
             </IconButton>
             <Menu
@@ -121,7 +119,9 @@ export function AppLayout() {
             >
               <MenuItem disabled>{user?.username}</MenuItem>
               <MenuItem onClick={handleLogout}>
-                <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
+                <Box component="span" sx={{ mr: 1 }}>
+                  ↪
+                </Box>
                 Sair
               </MenuItem>
             </Menu>

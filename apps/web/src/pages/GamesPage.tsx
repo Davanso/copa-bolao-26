@@ -12,7 +12,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { GameHeader } from "../components/GameHeader";
@@ -84,7 +83,13 @@ export function GamesPage() {
 
       {groupedGames.map(([groupName, games], index) => (
         <Accordion key={groupName} defaultExpanded={index < 2}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <AccordionSummary
+            expandIcon={
+              <Box component="span" sx={{ fontSize: 22 }}>
+                ⌄
+              </Box>
+            }
+          >
             <Stack
               direction="row"
               justifyContent="space-between"
