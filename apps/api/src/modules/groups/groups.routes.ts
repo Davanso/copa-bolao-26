@@ -6,6 +6,7 @@ import { HttpError } from "../../shared/errors/http.js";
 import {
   groupSchema,
   joinGroupSchema,
+  symbolicPrizeSchema,
 } from "../../shared/validation/schemas.js";
 import { buildRanking } from "../ranking/ranking.routes.js";
 
@@ -34,7 +35,9 @@ groupsRouter.post("/", requireAuth, async (req, res) => {
 groupsRouter.get("/me", requireAuth, async (req, res) => {
   const memberships = await prisma.groupMember.findMany({
     where: { userId: req.user!.id },
-    include: { group: true },
+    include: {
+      group: { include: { prizeRules: { orderBy: { position: "asc" } } } },
+    },
     orderBy: { joinedAt: "desc" },
   });
   const groups = memberships.map((membership) => ({
@@ -123,6 +126,36 @@ groupsRouter.post(
   },
 );
 
+groupsRouter.put("/:groupId/symbolic-prize", requireAuth, async (req, res) => {
+  const groupId = String(req.params.groupId);
+  const body = symbolicPrizeSchema.parse(req.body);
+  await ensureOwner(groupId, req.user!.id);
+
+  const updatedGroup = await prisma.$transaction(async (transaction) => {
+    await transaction.groupPrizeRule.deleteMany({ where: { groupId } });
+    await transaction.bolaoGroup.update({
+      where: { id: groupId },
+      data: { symbolicPrizeTotal: body.total },
+    });
+
+    if (body.rules.length) {
+      await transaction.groupPrizeRule.createMany({
+        data: body.rules.map((rule) => ({
+          groupId,
+          position: rule.position,
+          percentage: rule.percentage,
+        })),
+      });
+    }
+
+    return transaction.bolaoGroup.findUniqueOrThrow({
+      where: { id: groupId },
+      include: { prizeRules: { orderBy: { position: "asc" } } },
+    });
+  });
+
+  res.json({ group: updatedGroup });
+});
 groupsRouter.delete(
   "/:groupId/members/:userId",
   requireAuth,
@@ -149,7 +182,10 @@ groupsRouter.delete(
 );
 
 async function ensureMember(groupId: string, userId: string) {
-  const group = await prisma.bolaoGroup.findUnique({ where: { id: groupId } });
+  const group = await prisma.bolaoGroup.findUnique({
+    where: { id: groupId },
+    include: { prizeRules: { orderBy: { position: "asc" } } },
+  });
 
   if (!group) {
     throw new HttpError(404, "Grupo não encontrado");

@@ -32,12 +32,20 @@ export type RankingItem = {
   guessesCount: number;
 };
 
+export type PrizeRule = {
+  id?: string;
+  position: number;
+  percentage: number;
+};
+
 export type Group = {
   id: string;
   name: string;
   description?: string;
   inviteCode: string;
   ownerUserId: string;
+  symbolicPrizeTotal: number;
+  prizeRules?: PrizeRule[];
   memberRole?: "owner" | "member";
 };
 

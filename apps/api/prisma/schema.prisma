@@ -46,14 +46,16 @@ model Guess {
 }
 
 model BolaoGroup {
-  id          String        @id @default(uuid())
-  name        String
-  description String?
-  ownerUserId String        @map("owner_user_id")
-  inviteCode  String        @unique @map("invite_code")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  owner       User          @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  members     GroupMember[]
+  id                 String           @id @default(uuid())
+  name               String
+  description        String?
+  ownerUserId        String           @map("owner_user_id")
+  inviteCode         String           @unique @map("invite_code")
+  symbolicPrizeTotal Int              @default(0) @map("symbolic_prize_total")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  owner              User             @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  members            GroupMember[]
+  prizeRules         GroupPrizeRule[]
 
   @@map("groups")
 }
@@ -69,4 +71,17 @@ model GroupMember {
 
   @@unique([groupId, userId])
   @@map("group_members")
+}
+
+model GroupPrizeRule {
+  id         String     @id @default(uuid())
+  groupId    String     @map("group_id")
+  position   Int
+  percentage Int
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+  group      BolaoGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, position])
+  @@map("group_prize_rules")
 }

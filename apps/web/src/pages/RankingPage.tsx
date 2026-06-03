@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -12,6 +12,11 @@ import { useQuery } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { api } from "../services/api";
 import type { Group, RankingItem } from "../services/types";
+
+const currency = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
 
 export function RankingPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -35,6 +40,15 @@ export function RankingPage() {
   const selectedGroup = groupsQuery.data?.groups.find(
     (group) => group.id === selectedGroupId,
   );
+  const prizeByPosition = useMemo(() => {
+    const total = selectedGroup?.symbolicPrizeTotal ?? 0;
+    return new Map(
+      (selectedGroup?.prizeRules ?? []).map((rule) => [
+        rule.position,
+        (total * rule.percentage) / 100,
+      ]),
+    );
+  }, [selectedGroup]);
 
   return (
     <Stack gap={2.5}>
@@ -88,7 +102,15 @@ export function RankingPage() {
       </Grid>
 
       {selectedGroup && (
-        <Typography variant="h5">Ranking: {selectedGroup.name}</Typography>
+        <Paper sx={{ p: 2 }}>
+          <Stack gap={0.75}>
+            <Typography variant="h5">Ranking: {selectedGroup.name}</Typography>
+            <Typography color="text.secondary">
+              Premiação simbólica total:{" "}
+              {currency.format(selectedGroup.symbolicPrizeTotal ?? 0)}
+            </Typography>
+          </Stack>
+        </Paper>
       )}
       {rankingQuery.isLoading && selectedGroupId && (
         <EmptyState
@@ -108,28 +130,40 @@ export function RankingPage() {
         />
       )}
 
-      {rankingQuery.data?.ranking.map((item, index) => (
-        <Paper key={item.userId} sx={{ p: 2 }}>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            alignItems={{ xs: "flex-start", sm: "center" }}
-            justifyContent="space-between"
-            gap={1.5}
-          >
-            <Stack direction="row" gap={2} alignItems="center">
-              <Chip
-                color={index < 3 ? "secondary" : "default"}
-                label={`#${index + 1}`}
-              />
-              <Typography variant="h6">{item.username}</Typography>
+      {rankingQuery.data?.ranking.map((item, index) => {
+        const position = index + 1;
+        const symbolicPrize = prizeByPosition.get(position) ?? 0;
+
+        return (
+          <Paper key={item.userId} sx={{ p: 2 }}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              alignItems={{ xs: "flex-start", sm: "center" }}
+              justifyContent="space-between"
+              gap={1.5}
+            >
+              <Stack direction="row" gap={2} alignItems="center">
+                <Chip
+                  color={index < 3 ? "secondary" : "default"}
+                  label={`#${position}`}
+                />
+                <Typography variant="h6">{item.username}</Typography>
+              </Stack>
+              <Stack alignItems={{ xs: "flex-start", sm: "flex-end" }}>
+                <Typography>
+                  {item.totalPoints} pts · {item.exactScores} cravados ·{" "}
+                  {item.scoredGuesses} pontuados
+                </Typography>
+                {symbolicPrize > 0 && (
+                  <Typography color="secondary.main">
+                    Premiação simbólica: {currency.format(symbolicPrize)}
+                  </Typography>
+                )}
+              </Stack>
             </Stack>
-            <Typography>
-              {item.totalPoints} pts · {item.exactScores} cravados ·{" "}
-              {item.scoredGuesses} pontuados
-            </Typography>
-          </Stack>
-        </Paper>
-      ))}
+          </Paper>
+        );
+      })}
     </Stack>
   );
 }
