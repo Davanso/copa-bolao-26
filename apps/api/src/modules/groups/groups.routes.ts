@@ -156,6 +156,15 @@ groupsRouter.put("/:groupId/symbolic-prize", requireAuth, async (req, res) => {
 
   res.json({ group: updatedGroup });
 });
+
+groupsRouter.delete("/:groupId", requireAuth, async (req, res) => {
+  const groupId = String(req.params.groupId);
+  await ensureOwner(groupId, req.user!.id);
+
+  await prisma.bolaoGroup.delete({ where: { id: groupId } });
+  res.status(204).send();
+});
+
 groupsRouter.delete(
   "/:groupId/members/:userId",
   requireAuth,

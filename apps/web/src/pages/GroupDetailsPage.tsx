@@ -56,8 +56,56 @@ export function GroupDetailsPage() {
         "error",
       ),
   });
+  const deleteGroup = useMutation({
+    mutationFn: () => api.delete(`/groups/${groupId}`),
+    onSuccess: () => {
+      showToast("Grupo deletado com sucesso.", "success");
+      queryClient.invalidateQueries({ queryKey: ["groups-me"] });
+      navigate("/groups", { replace: true });
+    },
+    onError: (err) =>
+      showToast(apiMessage(err, "Não foi possível deletar o grupo."), "error"),
+  });
+  const removeMember = useMutation({
+    mutationFn: (userId: string) =>
+      api.delete(`/groups/${groupId}/members/${userId}`),
+    onSuccess: () => {
+      showToast("Participante removido do grupo.", "success");
+      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["group-ranking"] });
+    },
+    onError: (err) =>
+      showToast(
+        apiMessage(err, "Não foi possível remover o participante."),
+        "error",
+      ),
+  });
 
   const isOwner = data?.group.ownerUserId === user?.id;
+
+  function confirmDeleteGroup() {
+    if (!data) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Deletar o grupo "${data.group.name}"? Essa ação não pode ser desfeita.`,
+    );
+
+    if (confirmed) {
+      deleteGroup.mutate();
+    }
+  }
+
+  function confirmRemoveMember(member: GroupMember) {
+    const confirmed = window.confirm(
+      `Remover ${member.user.username} deste grupo?`,
+    );
+
+    if (confirmed) {
+      removeMember.mutate(member.userId);
+    }
+  }
 
   return (
     <Stack gap={2.5}>
@@ -88,7 +136,24 @@ export function GroupDetailsPage() {
                 color="secondary"
                 sx={{ alignSelf: "flex-start" }}
               />
-              <Typography variant="h4">{data.group.name}</Typography>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                alignItems={{ xs: "stretch", sm: "flex-start" }}
+                justifyContent="space-between"
+                gap={2}
+              >
+                <Typography variant="h4">{data.group.name}</Typography>
+                {isOwner && (
+                  <Button
+                    color="error"
+                    variant="outlined"
+                    disabled={deleteGroup.isPending}
+                    onClick={confirmDeleteGroup}
+                  >
+                    Deletar grupo
+                  </Button>
+                )}
+              </Stack>
               <Typography color="text.secondary">
                 Código de convite: <strong>{data.group.inviteCode}</strong>
               </Typography>
@@ -119,7 +184,20 @@ export function GroupDetailsPage() {
                         Participante
                       </Typography>
                     </Stack>
-                    <Chip label={roleLabel[member.role]} />
+                    <Stack direction="row" alignItems="center" gap={1}>
+                      <Chip label={roleLabel[member.role]} />
+                      {isOwner && member.role !== "owner" && (
+                        <Button
+                          color="error"
+                          size="small"
+                          variant="outlined"
+                          disabled={removeMember.isPending}
+                          onClick={() => confirmRemoveMember(member)}
+                        >
+                          Remover
+                        </Button>
+                      )}
+                    </Stack>
                   </Stack>
                 </Paper>
               </Grid>
