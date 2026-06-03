@@ -1,10 +1,11 @@
-﻿import { Chip, Paper, Stack, Typography } from "@mui/material";
+﻿import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
 import type { Game } from "../services/types";
 import {
   formatGameDate,
   statusColor,
   statusLabel,
 } from "../services/gameHelpers";
+import { flagForTeam } from "../services/teamFlags";
 
 export function GameHeader({ game }: { game: Game }) {
   const score =
@@ -35,9 +36,13 @@ export function GameHeader({ game }: { game: Game }) {
           />
         </Stack>
 
-        <Typography variant="h6">
-          {game.teamHome} x {game.teamAway}
-        </Typography>
+        <Stack gap={0.75}>
+          <TeamName name={game.teamHome} />
+          <Typography color="text.secondary" fontWeight={800}>
+            x
+          </Typography>
+          <TeamName name={game.teamAway} />
+        </Stack>
 
         <Typography color="text.secondary">{score}</Typography>
         <Typography color="text.secondary">
@@ -45,5 +50,20 @@ export function GameHeader({ game }: { game: Game }) {
         </Typography>
       </Stack>
     </Paper>
+  );
+}
+
+function TeamName({ name }: { name: string }) {
+  const flag = flagForTeam(name);
+
+  return (
+    <Stack direction="row" alignItems="center" gap={1}>
+      {flag && (
+        <Box component="span" sx={{ fontSize: 26, lineHeight: 1 }}>
+          {flag}
+        </Box>
+      )}
+      <Typography variant="h6">{name}</Typography>
+    </Stack>
   );
 }

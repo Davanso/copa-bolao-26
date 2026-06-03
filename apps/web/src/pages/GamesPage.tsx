@@ -193,5 +193,17 @@ function groupGamesByGroup(games: Game[]) {
     grouped.set(label, [...(grouped.get(label) ?? []), game]);
   }
 
-  return [...grouped.entries()];
+  return [...grouped.entries()]
+    .map(
+      ([label, groupedGames]) =>
+        [
+          label,
+          groupedGames.sort(
+            (a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt),
+          ),
+        ] as [string, Game[]],
+    )
+    .sort(([firstLabel], [secondLabel]) =>
+      firstLabel.localeCompare(secondLabel, "pt-BR", { numeric: true }),
+    );
 }
