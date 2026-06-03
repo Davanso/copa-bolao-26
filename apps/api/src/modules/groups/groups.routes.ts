@@ -131,12 +131,37 @@ groupsRouter.put("/:groupId/symbolic-prize", requireAuth, async (req, res) => {
   const body = symbolicPrizeSchema.parse(req.body);
   await ensureOwner(groupId, req.user!.id);
 
+  const members = await prisma.groupMember.findMany({ where: { groupId } });
+  const memberUserIds = new Set(members.map((member) => member.userId));
+  const total = body.contributions.reduce(
+    (sum, contribution) => sum + contribution.amount,
+    0,
+  );
+
+  for (const contribution of body.contributions) {
+    if (!memberUserIds.has(contribution.userId)) {
+      throw new HttpError(400, "Participante inválido para este grupo");
+    }
+  }
+
   const updatedGroup = await prisma.$transaction(async (transaction) => {
     await transaction.groupPrizeRule.deleteMany({ where: { groupId } });
     await transaction.bolaoGroup.update({
       where: { id: groupId },
-      data: { symbolicPrizeTotal: body.total },
+      data: { symbolicPrizeTotal: total },
     });
+    await Promise.all(
+      members.map((member) => {
+        const contribution = body.contributions.find(
+          (item) => item.userId === member.userId,
+        );
+
+        return transaction.groupMember.update({
+          where: { id: member.id },
+          data: { symbolicContribution: contribution?.amount ?? 0 },
+        });
+      }),
+    );
 
     if (body.rules.length) {
       await transaction.groupPrizeRule.createMany({
@@ -153,8 +178,17 @@ groupsRouter.put("/:groupId/symbolic-prize", requireAuth, async (req, res) => {
       include: { prizeRules: { orderBy: { position: "asc" } } },
     });
   });
+  const updatedMembers = await prisma.groupMember.findMany({
+    where: { groupId },
+    include: {
+      user: {
+        select: { id: true, username: true, role: true, createdAt: true },
+      },
+    },
+    orderBy: { joinedAt: "asc" },
+  });
 
-  res.json({ group: updatedGroup });
+  res.json({ group: updatedGroup, members: updatedMembers });
 });
 
 groupsRouter.delete("/:groupId", requireAuth, async (req, res) => {
@@ -185,7 +219,21 @@ groupsRouter.delete(
       throw new HttpError(404, "Membro não encontrado");
     }
 
-    await prisma.groupMember.delete({ where: { id: member.id } });
+    await prisma.$transaction(async (transaction) => {
+      await transaction.groupMember.delete({ where: { id: member.id } });
+      const remainingMembers = await transaction.groupMember.findMany({
+        where: { groupId },
+      });
+      const total = remainingMembers.reduce(
+        (sum, groupMember) => sum + groupMember.symbolicContribution,
+        0,
+      );
+
+      await transaction.bolaoGroup.update({
+        where: { id: groupId },
+        data: { symbolicPrizeTotal: total },
+      });
+    });
     res.status(204).send();
   },
 );

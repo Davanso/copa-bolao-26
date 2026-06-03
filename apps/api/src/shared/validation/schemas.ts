@@ -27,7 +27,14 @@ export const joinGroupSchema = z.object({
 
 export const symbolicPrizeSchema = z
   .object({
-    total: z.coerce.number().int().min(0).max(1_000_000),
+    contributions: z
+      .array(
+        z.object({
+          userId: z.string().uuid(),
+          amount: z.coerce.number().int().min(0).max(1_000_000),
+        }),
+      )
+      .max(200),
     rules: z
       .array(
         z.object({
@@ -48,12 +55,26 @@ export const symbolicPrizeSchema = z
       });
     }
 
+    const users = new Set(value.contributions.map((item) => item.userId));
+
+    if (users.size !== value.contributions.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Cada participante só pode aparecer uma vez.",
+        path: ["contributions"],
+      });
+    }
+
+    const total = value.contributions.reduce(
+      (sum, item) => sum + item.amount,
+      0,
+    );
     const totalPercentage = value.rules.reduce(
       (sum, rule) => sum + rule.percentage,
       0,
     );
 
-    if (value.total > 0 && totalPercentage !== 100) {
+    if (total > 0 && totalPercentage !== 100) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "A soma dos percentuais precisa ser 100%.",
@@ -61,7 +82,7 @@ export const symbolicPrizeSchema = z
       });
     }
 
-    if (value.total === 0 && totalPercentage !== 0) {
+    if (total === 0 && totalPercentage !== 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Sem valor simbólico, os percentuais precisam ser 0%.",

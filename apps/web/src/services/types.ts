@@ -54,6 +54,7 @@ export type GroupMember = {
   groupId: string;
   userId: string;
   role: "owner" | "member";
+  symbolicContribution: number;
   joinedAt: string;
   user: User;
 };

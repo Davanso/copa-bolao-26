@@ -61,13 +61,14 @@ model BolaoGroup {
 }
 
 model GroupMember {
-  id       String     @id @default(uuid())
-  groupId  String     @map("group_id")
-  userId   String     @map("user_id")
-  role     GroupRole  @default(member)
-  joinedAt DateTime   @default(now()) @map("joined_at")
-  group    BolaoGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                   String     @id @default(uuid())
+  groupId              String     @map("group_id")
+  userId               String     @map("user_id")
+  role                 GroupRole  @default(member)
+  symbolicContribution Int        @default(0) @map("symbolic_contribution")
+  joinedAt             DateTime   @default(now()) @map("joined_at")
+  group                BolaoGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user                 User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
   @@map("group_members")

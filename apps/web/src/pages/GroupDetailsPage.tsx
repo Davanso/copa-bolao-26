@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Box,
   Button,
   Chip,
   Grid,
@@ -27,6 +28,15 @@ function apiMessage(error: unknown, fallback: string) {
   return (error as any)?.response?.data?.message ?? fallback;
 }
 
+function memberContributions(members: GroupMember[]) {
+  return Object.fromEntries(
+    members.map((member) => [
+      member.userId,
+      String(member.symbolicContribution ?? 0),
+    ]),
+  );
+}
+
 export function GroupDetailsPage() {
   const { groupId } = useParams();
   const navigate = useNavigate();
@@ -42,8 +52,10 @@ export function GroupDetailsPage() {
     enabled: Boolean(groupId),
   });
   const savePrize = useMutation({
-    mutationFn: (payload: { total: number; rules: PrizeRule[] }) =>
-      api.put(`/groups/${groupId}/symbolic-prize`, payload),
+    mutationFn: (payload: {
+      contributions: { userId: string; amount: number }[];
+      rules: PrizeRule[];
+    }) => api.put(`/groups/${groupId}/symbolic-prize`, payload),
     onSuccess: () => {
       showToast("Premiação simbólica salva.", "success");
       queryClient.invalidateQueries({ queryKey: ["group", groupId] });
@@ -162,6 +174,7 @@ export function GroupDetailsPage() {
 
           <PrizeCard
             group={data.group}
+            members={data.members}
             isOwner={Boolean(isOwner)}
             saving={savePrize.isPending}
             onSave={(payload) => savePrize.mutate(payload)}
@@ -211,16 +224,23 @@ export function GroupDetailsPage() {
 
 function PrizeCard({
   group,
+  members,
   isOwner,
   saving,
   onSave,
 }: {
   group: Group;
+  members: GroupMember[];
   isOwner: boolean;
   saving: boolean;
-  onSave: (payload: { total: number; rules: PrizeRule[] }) => void;
+  onSave: (payload: {
+    contributions: { userId: string; amount: number }[];
+    rules: PrizeRule[];
+  }) => void;
 }) {
-  const [total, setTotal] = useState(group.symbolicPrizeTotal ?? 0);
+  const [contributions, setContributions] = useState<Record<string, string>>(
+    () => memberContributions(members),
+  );
   const [rules, setRules] = useState<PrizeRule[]>(
     group.prizeRules?.length
       ? group.prizeRules
@@ -232,7 +252,7 @@ function PrizeCard({
   );
 
   useEffect(() => {
-    setTotal(group.symbolicPrizeTotal ?? 0);
+    setContributions(memberContributions(members));
     setRules(
       group.prizeRules?.length
         ? group.prizeRules
@@ -242,8 +262,16 @@ function PrizeCard({
             { position: 3, percentage: 10 },
           ],
     );
-  }, [group]);
+  }, [group, members]);
 
+  const total = useMemo(
+    () =>
+      Object.values(contributions).reduce(
+        (sum, value) => sum + contributionToNumber(value),
+        0,
+      ),
+    [contributions],
+  );
   const percentageTotal = useMemo(
     () => rules.reduce((sum, rule) => sum + Number(rule.percentage), 0),
     [rules],
@@ -257,25 +285,71 @@ function PrizeCard({
     );
   }
 
+  function updateContribution(userId: string, value: string) {
+    setContributions((current) => ({ ...current, [userId]: value }));
+  }
+
+  const payloadContributions = members.map((member) => ({
+    userId: member.userId,
+    amount: contributionToNumber(contributions[member.userId] ?? ""),
+  }));
+
   return (
     <Paper sx={{ p: { xs: 2.5, md: 3 } }}>
       <Stack gap={2}>
         <Stack>
           <Typography variant="h5">Premiação simbólica</Typography>
           <Typography color="text.secondary">
-            Valor apenas simbólico para a brincadeira. O app não processa
-            pagamentos.
+            Preencha quanto cada participante combinou simbolicamente. O app
+            soma tudo e calcula a divisão pelos percentuais.
           </Typography>
         </Stack>
 
-        <TextField
-          label="Valor simbólico total"
-          type="number"
-          value={total}
-          disabled={!isOwner || saving}
-          inputProps={{ min: 0, inputMode: "numeric" }}
-          onChange={(event) => setTotal(Number(event.target.value))}
-        />
+        <Paper
+          sx={{
+            bgcolor: "rgba(0, 156, 59, 0.08)",
+            border: "1px solid rgba(0, 156, 59, 0.18)",
+            p: 2,
+          }}
+        >
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            gap={1}
+          >
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                Valor total simbólico
+              </Typography>
+              <Typography variant="h4">{currency.format(total)}</Typography>
+            </Box>
+          </Stack>
+        </Paper>
+
+        <Stack gap={1}>
+          <Typography variant="h6">Valor por participante</Typography>
+          <Grid container spacing={1.5}>
+            {members.map((member) => (
+              <Grid item xs={12} md={6} key={member.id}>
+                <TextField
+                  fullWidth
+                  label={member.user.username}
+                  placeholder="0"
+                  value={contributions[member.userId] ?? ""}
+                  disabled={!isOwner || saving}
+                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                  helperText={roleLabel[member.role]}
+                  onChange={(event) =>
+                    updateContribution(
+                      member.userId,
+                      event.target.value.replace(/\D/g, ""),
+                    )
+                  }
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </Stack>
 
         <Grid container spacing={1.5}>
           {rules.map((rule, index) => (
@@ -327,7 +401,7 @@ function PrizeCard({
             disabled={saving || (total > 0 && percentageTotal !== 100)}
             onClick={() =>
               onSave({
-                total,
+                contributions: payloadContributions,
                 rules: total > 0 ? rules : [],
               })
             }
@@ -342,4 +416,8 @@ function PrizeCard({
       </Stack>
     </Paper>
   );
+}
+
+function contributionToNumber(value: string) {
+  return value ? Number(value) : 0;
 }
