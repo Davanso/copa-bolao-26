@@ -1,8 +1,9 @@
 ﻿import { Alert, Grid, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
+import { EmptyState } from "../components/EmptyState";
+import { GameHeader } from "../components/GameHeader";
 import { api } from "../services/api";
 import type { Game } from "../services/types";
-import { GameHeader } from "../components/GameHeader";
 
 export function LivePage() {
   const { data, error, isLoading } = useQuery<{ liveGames: Game[] }>({
@@ -18,12 +19,22 @@ export function LivePage() {
         Atualização automática a cada 30 segundos.
       </Typography>
 
-      {isLoading && <Typography>Carregando jogos ao vivo...</Typography>}
+      {isLoading && (
+        <EmptyState
+          emoji="🔥"
+          title="Buscando jogos ao vivo"
+          description="Estamos consultando a API da Copa."
+        />
+      )}
       {error && (
-        <Alert severity="error">Não foi possível carregar ao vivo.</Alert>
+        <Alert severity="error">Não foi possível carregar jogos ao vivo.</Alert>
       )}
       {!isLoading && !data?.liveGames.length && (
-        <Alert severity="info">Nenhum jogo ao vivo agora.</Alert>
+        <EmptyState
+          emoji="🌙"
+          title="Nada rolando agora"
+          description="Nenhum jogo está ao vivo neste momento. Volte quando a bola estiver em campo."
+        />
       )}
 
       <Grid container spacing={2}>

@@ -1,5 +1,8 @@
 ﻿import { useMemo, useState } from "react";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -9,14 +12,18 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../services/api";
-import type { Game } from "../services/types";
+import { EmptyState } from "../components/EmptyState";
 import { GameHeader } from "../components/GameHeader";
+import { useToast } from "../hooks/useToast";
+import { api } from "../services/api";
 import { isGuessLocked } from "../services/gameHelpers";
+import type { Game } from "../services/types";
 
 export function GamesPage() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const { data, error, isLoading } = useQuery<{ games: Game[] }>({
     queryKey: ["games", "scheduled"],
     queryFn: async () => (await api.get("/games?status=scheduled")).data,
@@ -36,8 +43,15 @@ export function GamesPage() {
       guessAway: number;
     }) => api.post(`/games/${gameId}/guess`, { guessHome, guessAway }),
     onSuccess: () => {
+      showToast("Palpite salvo com sucesso!", "success");
       queryClient.invalidateQueries({ queryKey: ["games"] });
       queryClient.invalidateQueries({ queryKey: ["guesses-me"] });
+    },
+    onError: (err: any) => {
+      showToast(
+        err.response?.data?.message ?? "Não foi possível salvar o palpite.",
+        "error",
+      );
     },
   });
 
@@ -46,47 +60,66 @@ export function GamesPage() {
       <Box>
         <Typography variant="h4">Jogos agendados</Typography>
         <Typography color="text.secondary">
-          Jogos separados por grupo, com dados vindos da API da Copa 2026.
+          Abra cada grupo, escolha seus placares e salve antes da bola rolar.
         </Typography>
       </Box>
 
-      {isLoading && <Typography>Carregando jogos...</Typography>}
+      {isLoading && (
+        <EmptyState
+          emoji="⚽"
+          title="Carregando jogos"
+          description="Buscando a tabela oficial da Copa 2026."
+        />
+      )}
       {error && (
         <Alert severity="error">Não foi possível carregar jogos.</Alert>
       )}
-      {mutation.error && (
-        <Alert severity="error">
-          {(mutation.error as any).response?.data?.message ??
-            "Não foi possível salvar o palpite."}
-        </Alert>
-      )}
-      {mutation.isSuccess && (
-        <Alert severity="success">Palpite salvo com sucesso.</Alert>
-      )}
       {!isLoading && data?.games.length === 0 && (
-        <Alert severity="info">Nenhum jogo agendado no momento.</Alert>
+        <EmptyState
+          emoji="📅"
+          title="Nenhum jogo agendado"
+          description="Assim que a API retornar partidas abertas, elas aparecem aqui."
+        />
       )}
 
-      {groupedGames.map(([groupName, games]) => (
-        <Stack key={groupName} gap={1.5}>
-          <Typography variant="h5">{groupName}</Typography>
-          <Grid container spacing={2}>
-            {games.map((game) => (
-              <Grid item xs={12} lg={6} key={game.id}>
-                <Paper sx={{ p: 1.25 }}>
-                  <GameHeader game={game} />
-                  <GuessForm
-                    game={game}
-                    saving={mutation.isPending}
-                    onSave={(guessHome, guessAway) =>
-                      mutation.mutate({ gameId: game.id, guessHome, guessAway })
-                    }
-                  />
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-        </Stack>
+      {groupedGames.map(([groupName, games], index) => (
+        <Accordion key={groupName} defaultExpanded={index < 2}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              width="100%"
+              pr={2}
+            >
+              <Typography variant="h5">{groupName}</Typography>
+              <Typography color="text.secondary">
+                {games.length} jogos
+              </Typography>
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Grid container spacing={2}>
+              {games.map((game) => (
+                <Grid item xs={12} lg={6} key={game.id}>
+                  <Paper sx={{ p: 1.25 }}>
+                    <GameHeader game={game} />
+                    <GuessForm
+                      game={game}
+                      saving={mutation.isPending}
+                      onSave={(guessHome, guessAway) =>
+                        mutation.mutate({
+                          gameId: game.id,
+                          guessHome,
+                          guessAway,
+                        })
+                      }
+                    />
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+          </AccordionDetails>
+        </Accordion>
       ))}
     </Stack>
   );

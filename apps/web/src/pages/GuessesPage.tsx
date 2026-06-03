@@ -1,8 +1,9 @@
 ﻿import { Alert, Chip, Paper, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
+import { EmptyState } from "../components/EmptyState";
 import { api } from "../services/api";
-import type { Guess } from "../services/types";
 import { formatGameDate, statusLabel } from "../services/gameHelpers";
+import type { Guess } from "../services/types";
 
 export function GuessesPage() {
   const { data, error, isLoading } = useQuery<{ guesses: Guess[] }>({
@@ -14,18 +15,32 @@ export function GuessesPage() {
     <Stack gap={2}>
       <Typography variant="h4">Meus palpites</Typography>
 
-      {isLoading && <Typography>Carregando palpites...</Typography>}
+      {isLoading && (
+        <EmptyState
+          emoji="🎯"
+          title="Carregando palpites"
+          description="Buscando seus placares salvos."
+        />
+      )}
       {error && (
         <Alert severity="error">Não foi possível carregar palpites.</Alert>
       )}
       {!isLoading && data?.guesses.length === 0 && (
-        <Alert severity="info">Você ainda não salvou nenhum palpite.</Alert>
+        <EmptyState
+          emoji="📝"
+          title="Nenhum palpite salvo"
+          description="Escolha um jogo na tabela e registre seu placar antes do início."
+        />
       )}
 
       {data?.guesses.map((guess) => (
         <Paper key={guess.id} sx={{ p: 2 }}>
           <Stack gap={1}>
-            <Stack direction="row" justifyContent="space-between" gap={2}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              justifyContent="space-between"
+              gap={2}
+            >
               <Typography variant="h6">
                 {guess.game?.teamHome} {guess.guessHome} x {guess.guessAway}{" "}
                 {guess.game?.teamAway}

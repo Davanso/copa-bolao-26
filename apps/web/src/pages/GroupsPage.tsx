@@ -10,6 +10,9 @@ import {
   Typography,
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { EmptyState } from "../components/EmptyState";
+import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import type { Group } from "../services/types";
 
@@ -26,6 +29,8 @@ export function GroupsPage() {
   const [name, setName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
   const { data, error, isLoading } = useQuery<{ groups: Group[] }>({
     queryKey: ["groups-me"],
     queryFn: async () => (await api.get("/groups/me")).data,
@@ -34,30 +39,42 @@ export function GroupsPage() {
     mutationFn: () => api.post("/groups", { name: name.trim() }),
     onSuccess: () => {
       setName("");
+      showToast("Grupo criado com sucesso!", "success");
       queryClient.invalidateQueries({ queryKey: ["groups-me"] });
     },
+    onError: (err) =>
+      showToast(apiMessage(err, "Não foi possível criar grupo."), "error"),
   });
   const join = useMutation({
     mutationFn: () =>
       api.post("/groups/join", { inviteCode: inviteCode.trim().toUpperCase() }),
     onSuccess: () => {
       setInviteCode("");
+      showToast("Você entrou no grupo!", "success");
       queryClient.invalidateQueries({ queryKey: ["groups-me"] });
     },
+    onError: (err) =>
+      showToast(apiMessage(err, "Não foi possível entrar no grupo."), "error"),
   });
 
+  function copyInvite(code: string) {
+    navigator.clipboard?.writeText(code);
+    showToast("Código copiado para a área de transferência.", "success");
+  }
+
   return (
-    <Stack gap={2}>
-      <Typography variant="h4">Grupos</Typography>
-      <Typography color="text.secondary">
-        Crie um grupo para convidar amigos. Quem cria o grupo é o único dono e
-        administrador dele.
-      </Typography>
+    <Stack gap={2.5}>
+      <Stack>
+        <Typography variant="h4">Grupos</Typography>
+        <Typography color="text.secondary">
+          Crie um grupo para convidar amigos ou entre usando um código.
+        </Typography>
+      </Stack>
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Stack gap={1}>
+          <Paper sx={{ p: 2.5 }}>
+            <Stack gap={1.25}>
               <Typography variant="h6">Criar grupo</Typography>
               <TextField
                 label="Nome do grupo"
@@ -75,8 +92,8 @@ export function GroupsPage() {
           </Paper>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Stack gap={1}>
+          <Paper sx={{ p: 2.5 }}>
+            <Stack gap={1.25}>
               <Typography variant="h6">Entrar por código</Typography>
               <TextField
                 label="Código de convite"
@@ -97,41 +114,55 @@ export function GroupsPage() {
         </Grid>
       </Grid>
 
-      {isLoading && <Typography>Carregando grupos...</Typography>}
+      {isLoading && (
+        <EmptyState
+          emoji="👥"
+          title="Carregando grupos"
+          description="Estamos buscando os grupos que você participa."
+        />
+      )}
       {error && (
         <Alert severity="error">Não foi possível carregar grupos.</Alert>
       )}
-      {create.error && (
-        <Alert severity="error">
-          {apiMessage(create.error, "Não foi possível criar grupo.")}
-        </Alert>
-      )}
-      {join.error && (
-        <Alert severity="error">
-          {apiMessage(join.error, "Não foi possível entrar no grupo.")}
-        </Alert>
-      )}
-      {create.isSuccess && <Alert severity="success">Grupo criado.</Alert>}
-      {join.isSuccess && (
-        <Alert severity="success">Você entrou no grupo.</Alert>
-      )}
       {!isLoading && data?.groups.length === 0 && (
-        <Alert severity="info">Você ainda não participa de nenhum grupo.</Alert>
+        <EmptyState
+          emoji="🏟️"
+          title="Nenhum grupo ainda"
+          description="Crie seu primeiro grupo ou peça o código de convite para um amigo."
+        />
       )}
 
-      {data?.groups.map((group) => (
-        <Paper key={group.id} sx={{ p: 2 }}>
-          <Stack gap={1}>
-            <Stack direction="row" justifyContent="space-between" gap={2}>
-              <Typography variant="h6">{group.name}</Typography>
-              <Chip label={roleLabel[group.memberRole ?? ""] ?? "Membro"} />
-            </Stack>
-            <Typography color="text.secondary">
-              Código de convite: {group.inviteCode}
-            </Typography>
-          </Stack>
-        </Paper>
-      ))}
+      <Grid container spacing={2}>
+        {data?.groups.map((group) => (
+          <Grid item xs={12} md={6} key={group.id}>
+            <Paper sx={{ p: 2.5 }}>
+              <Stack gap={1.5}>
+                <Stack direction="row" justifyContent="space-between" gap={2}>
+                  <Typography variant="h6">{group.name}</Typography>
+                  <Chip label={roleLabel[group.memberRole ?? ""] ?? "Membro"} />
+                </Stack>
+                <Typography color="text.secondary">
+                  Código: {group.inviteCode}
+                </Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
+                  <Button
+                    variant="contained"
+                    onClick={() => navigate(`/groups/${group.id}`)}
+                  >
+                    Ver detalhes
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => copyInvite(group.inviteCode)}
+                  >
+                    Copiar código
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
     </Stack>
   );
 }

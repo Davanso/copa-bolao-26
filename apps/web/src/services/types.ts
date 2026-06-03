@@ -1,4 +1,5 @@
-export type User = { id: string; username: string; role: "user" | "admin" };
+﻿export type User = { id: string; username: string; role: "user" | "admin" };
+
 export type Game = {
   id: string;
   teamHome: string;
@@ -12,6 +13,7 @@ export type Game = {
   liveMinute: number | null;
   myGuess?: Guess | null;
 };
+
 export type Guess = {
   id: string;
   gameId: string;
@@ -20,6 +22,7 @@ export type Guess = {
   points: number | null;
   game?: Game;
 };
+
 export type RankingItem = {
   userId: string;
   username: string;
@@ -28,10 +31,21 @@ export type RankingItem = {
   scoredGuesses: number;
   guessesCount: number;
 };
+
 export type Group = {
   id: string;
   name: string;
   description?: string;
   inviteCode: string;
-  memberRole?: string;
+  ownerUserId: string;
+  memberRole?: "owner" | "member";
+};
+
+export type GroupMember = {
+  id: string;
+  groupId: string;
+  userId: string;
+  role: "owner" | "member";
+  joinedAt: string;
+  user: User;
 };
