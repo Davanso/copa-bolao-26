@@ -10,6 +10,8 @@ import {
   Paper,
   Stack,
   SvgIcon,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -26,13 +28,19 @@ const expandedGroupsStorageKey = "bolao.games.expandedGroups";
 export function GamesPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const [selectedStage, setSelectedStage] = useState("group");
   const { data, error, isLoading } = useQuery<{ games: Game[] }>({
     queryKey: ["games", "scheduled"],
     queryFn: async () => (await api.get("/games?status=scheduled")).data,
   });
-  const groupedGames = useMemo(
-    () => groupGamesByStage(data?.games ?? []),
+  const stageTabs = useMemo(
+    () => buildStageTabs(data?.games ?? []),
     [data?.games],
+  );
+  const selectedTab = stageTabs.find((tab) => tab.id === selectedStage);
+  const groupedGames = useMemo(
+    () => groupGamesForTab(selectedTab),
+    [selectedTab],
   );
   const groupLabels = useMemo(
     () => groupedGames.map(([groupName]) => groupName),
@@ -44,6 +52,16 @@ export function GamesPage() {
   const hasGames = groupedGames.length > 0;
   const allExpanded =
     hasGames && groupLabels.every((groupName) => expandedGroups.has(groupName));
+
+  useEffect(() => {
+    if (!stageTabs.length) {
+      return;
+    }
+
+    if (!stageTabs.some((tab) => tab.id === selectedStage)) {
+      setSelectedStage(stageTabs[0].id);
+    }
+  }, [selectedStage, stageTabs]);
 
   useEffect(() => {
     setExpandedGroups((currentGroups) => {
@@ -98,7 +116,7 @@ export function GamesPage() {
         <Box>
           <Typography variant="h4">Jogos agendados</Typography>
           <Typography color="text.secondary">
-            Abra cada grupo, escolha seus placares e salve antes da bola rolar.
+            Escolha a fase, abra cada grupo e salve antes da bola rolar.
           </Typography>
         </Box>
 
@@ -124,20 +142,42 @@ export function GamesPage() {
 
       {isLoading && (
         <EmptyState
-          emoji="⚽"
+          emoji="?"
           title="Carregando jogos"
           description="Buscando a tabela oficial da Copa 2026."
         />
       )}
       {error && (
-        <Alert severity="error">Não foi possível carregar jogos.</Alert>
+        <Alert severity="error">
+          {(error as any)?.response?.data?.message ??
+            "N?o foi poss?vel carregar jogos."}
+        </Alert>
       )}
       {!isLoading && data?.games.length === 0 && (
         <EmptyState
-          emoji="📅"
+          emoji="??"
           title="Nenhum jogo agendado"
           description="Assim que a API retornar partidas abertas, elas aparecem aqui."
         />
+      )}
+
+      {stageTabs.length > 0 && (
+        <Paper sx={{ p: 1 }}>
+          <Tabs
+            value={selectedStage}
+            variant="scrollable"
+            scrollButtons="auto"
+            onChange={(_, value: string) => setSelectedStage(value)}
+          >
+            {stageTabs.map((tab) => (
+              <Tab
+                key={tab.id}
+                label={`${tab.label} (${tab.games.length})`}
+                value={tab.id}
+              />
+            ))}
+          </Tabs>
+        </Paper>
       )}
 
       {groupedGames.map(([groupName, games]) => (
@@ -297,10 +337,68 @@ function normalizeScoreInput(value: string) {
   return value.replace(/\D/g, "").slice(0, 2);
 }
 
-function groupGamesByStage(games: Game[]) {
+type StageTab = {
+  id: string;
+  label: string;
+  games: Game[];
+};
+
+const stageTabsConfig = [
+  {
+    id: "group",
+    label: "Fase de grupos",
+    match: (game: Game) => Boolean(game.groupName),
+  },
+  {
+    id: "r32",
+    label: "16 avos",
+    match: (game: Game) => game.stage === "16 avos de final",
+  },
+  {
+    id: "r16",
+    label: "Oitavas",
+    match: (game: Game) => game.stage === "Oitavas de final",
+  },
+  {
+    id: "qf",
+    label: "Quartas",
+    match: (game: Game) => game.stage === "Quartas de final",
+  },
+  {
+    id: "sf",
+    label: "Semifinal",
+    match: (game: Game) => game.stage === "Semifinal",
+  },
+  {
+    id: "final",
+    label: "Final",
+    match: (game: Game) => game.stage === "Final",
+  },
+  {
+    id: "third",
+    label: "3? lugar",
+    match: (game: Game) => game.stage === "Disputa de terceiro lugar",
+  },
+];
+
+function buildStageTabs(games: Game[]): StageTab[] {
+  return stageTabsConfig
+    .map((stage) => ({
+      id: stage.id,
+      label: stage.label,
+      games: games.filter(stage.match).sort(compareGames),
+    }))
+    .filter((stage) => stage.games.length > 0);
+}
+
+function groupGamesForTab(tab?: StageTab) {
+  if (!tab) {
+    return [] as [string, Game[]][];
+  }
+
   const grouped = new Map<string, Game[]>();
 
-  for (const game of games) {
+  for (const game of tab.games) {
     const label = game.groupName ? `Grupo ${game.groupName}` : game.stage;
     grouped.set(label, [...(grouped.get(label) ?? []), game]);
   }
@@ -308,66 +406,39 @@ function groupGamesByStage(games: Game[]) {
   return [...grouped.entries()]
     .map(
       ([label, groupedGames]) =>
-        [
-          label,
-          [...groupedGames].sort(
-            (a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt),
-          ),
-        ] as [string, Game[]],
+        [label, [...groupedGames].sort(compareGames)] as [string, Game[]],
     )
     .sort(([firstLabel], [secondLabel]) =>
-      compareStageGroups(
-        firstLabel,
-        secondLabel,
-        grouped.get(firstLabel) ?? [],
-        grouped.get(secondLabel) ?? [],
-      ),
+      compareGroupLabels(firstLabel, secondLabel),
     );
 }
 
-function compareStageGroups(
-  firstLabel: string,
-  secondLabel: string,
-  firstGames: Game[],
-  secondGames: Game[],
-) {
-  const firstOrder = stageOrder(firstLabel);
-  const secondOrder = stageOrder(secondLabel);
+function compareGames(firstGame: Game, secondGame: Game) {
+  if (firstGame.groupName && secondGame.groupName) {
+    const groupOrder = firstGame.groupName.localeCompare(
+      secondGame.groupName,
+      "pt-BR",
+      { numeric: true },
+    );
 
-  if (firstOrder !== secondOrder) {
-    return firstOrder - secondOrder;
+    if (groupOrder !== 0) {
+      return groupOrder;
+    }
   }
 
+  return Date.parse(firstGame.startsAt) - Date.parse(secondGame.startsAt);
+}
+
+function compareGroupLabels(firstLabel: string, secondLabel: string) {
   if (isGroupLabel(firstLabel) && isGroupLabel(secondLabel)) {
     return firstLabel.localeCompare(secondLabel, "pt-BR", { numeric: true });
   }
 
-  return firstGroupDate(firstGames) - firstGroupDate(secondGames);
-}
-
-function stageOrder(label: string) {
-  if (isGroupLabel(label)) {
-    return 0;
-  }
-
-  const knockoutOrder: Record<string, number> = {
-    "16 avos de final": 1,
-    "Oitavas de final": 2,
-    "Quartas de final": 3,
-    Semifinal: 4,
-    Final: 5,
-    "Disputa de terceiro lugar": 6,
-  };
-
-  return knockoutOrder[label] ?? 99;
+  return 0;
 }
 
 function isGroupLabel(label: string) {
   return label.startsWith("Grupo ");
-}
-
-function firstGroupDate(games: Game[]) {
-  return Math.min(...games.map((game) => Date.parse(game.startsAt)));
 }
 
 function readExpandedGroups() {
