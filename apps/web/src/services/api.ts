@@ -14,8 +14,10 @@ function defaultApiUrl() {
   return `http://${hostname}:3333`;
 }
 
+export const apiBaseUrl = import.meta.env.VITE_API_URL ?? defaultApiUrl();
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? defaultApiUrl(),
+  baseURL: apiBaseUrl,
 });
 
 api.interceptors.request.use((config) => {

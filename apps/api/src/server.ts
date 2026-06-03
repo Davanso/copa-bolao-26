@@ -18,11 +18,40 @@ const allowedOrigins = (
 )
   .split(",")
   .map((origin) => origin.trim());
+const isProduction = process.env.NODE_ENV === "production";
+
+function isPrivateDevOrigin(origin: string) {
+  if (isProduction) {
+    return false;
+  }
+
+  try {
+    const url = new URL(origin);
+
+    if (url.protocol !== "http:" || url.port !== "5173") {
+      return false;
+    }
+
+    return (
+      url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname.startsWith("192.168.") ||
+      url.hostname.startsWith("10.") ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        isPrivateDevOrigin(origin)
+      ) {
         return callback(null, true);
       }
 

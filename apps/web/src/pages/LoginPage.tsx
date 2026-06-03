@@ -10,14 +10,14 @@ import {
   Typography,
 } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
-import { api } from "../services/api";
+import { api, apiBaseUrl } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import logo from "../assets/logo-fifa.webp";
 
 function messageFromError(error: any) {
   if (error?.code === "ERR_NETWORK") {
-    return "Não foi possível conectar com a API. No celular, confira se VITE_API_URL aponta para a API publicada ou para o IP correto da sua máquina.";
+    return `Não foi possível conectar com a API em ${apiBaseUrl}. No celular, use a API publicada ou o IP da sua máquina.`;
   }
 
   return error.response?.data?.message ?? "Não foi possível concluir a ação.";

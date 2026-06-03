@@ -19,6 +19,24 @@ npm run dev
 - Web: http://localhost:5173
 - API: http://localhost:3333
 
+### Acessar pelo celular em desenvolvimento
+
+Use o IP da máquina na mesma rede Wi-Fi:
+
+```bash
+VITE_API_URL="http://SEU_IP_DA_REDE:3333"
+```
+
+Depois abra no celular:
+
+```text
+http://SEU_IP_DA_REDE:5173
+```
+
+Exemplo: se o PC estiver em `192.168.0.10`, use
+`VITE_API_URL="http://192.168.0.10:3333"` e abra
+`http://192.168.0.10:5173`.
+
 ## Banco
 
 Crie um Postgres (recomendado: Neon) e configure:
@@ -66,3 +84,6 @@ O usuário admin é criado automaticamente ao iniciar a API se não existir.
 - Output directory: `dist`
 - Variável:
   - `VITE_API_URL=https://sua-api.onrender.com`
+
+Sem `VITE_API_URL` na Vercel, o celular tenta conectar no endereço errado e o
+login falha com erro de conexão.
