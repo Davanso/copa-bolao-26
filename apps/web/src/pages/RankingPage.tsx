@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { api } from "../services/api";
 import type { Group, RankingItem } from "../services/types";
 
@@ -96,8 +97,7 @@ export function RankingPage() {
       </Paper>
 
       {groupsQuery.isLoading && (
-        <EmptyState
-          emoji="🏆"
+        <LoadingState
           title="Carregando rankings"
           description="Estamos buscando seus grupos."
         />
@@ -147,8 +147,7 @@ export function RankingPage() {
       )}
 
       {rankingQuery.isLoading && selectedGroupId && (
-        <EmptyState
-          emoji="📊"
+        <LoadingState
           title="Calculando ranking"
           description="Somando pontos e cravadas deste grupo."
         />

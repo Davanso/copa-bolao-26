@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import {
@@ -60,8 +61,7 @@ export function GuessesPage() {
       <Typography variant="h4">Meus palpites</Typography>
 
       {isLoading && (
-        <EmptyState
-          emoji="🎯"
+        <LoadingState
           title="Carregando palpites"
           description="Buscando seus placares salvos."
         />

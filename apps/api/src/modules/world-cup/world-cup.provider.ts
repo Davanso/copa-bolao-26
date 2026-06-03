@@ -2,6 +2,7 @@
 
 const providerUrl =
   process.env.WORLD_CUP_API_URL ?? "https://worldcup26.ir/get/games";
+const isDevelopment = process.env.NODE_ENV !== "production";
 
 let cachedAt = 0;
 let cachedGames: Game[] = [];
@@ -84,19 +85,13 @@ export async function getWorldCupGames() {
   try {
     response = await fetch(providerUrl);
   } catch (error) {
-    if (cachedGames.length) {
-      return cachedGames;
-    }
-
-    throw error;
+    return fallbackGames(error);
   }
 
   if (!response.ok) {
-    if (cachedGames.length) {
-      return cachedGames;
-    }
-
-    throw new Error(`World Cup API retornou HTTP ${response.status}`);
+    return fallbackGames(
+      new Error(`World Cup API retornou HTTP ${response.status}`),
+    );
   }
 
   const payload = (await response.json()) as WorldCupApiResponse;
@@ -204,4 +199,77 @@ function parseApiDate(value?: string) {
   const [hour, minute] = timePart.split(":").map(Number);
 
   return new Date(year, month - 1, day, hour, minute, 0, 0);
+}
+
+function fallbackGames(error: unknown) {
+  if (cachedGames.length) {
+    return cachedGames;
+  }
+
+  if (isDevelopment) {
+    cachedGames = mockWorldCupGames();
+    cachedAt = Date.now();
+    return cachedGames;
+  }
+
+  throw error;
+}
+
+function mockWorldCupGames(): Game[] {
+  const now = new Date();
+  const day = 24 * 60 * 60 * 1000;
+  const makeDate = (daysFromNow: number, hour: number) => {
+    const date = new Date(now.getTime() + daysFromNow * day);
+    date.setHours(hour, 0, 0, 0);
+    return date.toISOString();
+  };
+
+  return [
+    mockGame("mock-group-a-1", "México", "África do Sul", "A", makeDate(1, 16)),
+    mockGame("mock-group-a-2", "Canadá", "Brasil", "A", makeDate(2, 19)),
+    mockGame("mock-group-b-1", "Argentina", "Portugal", "B", makeDate(3, 16)),
+    mockGame("mock-group-b-2", "Japão", "Marrocos", "B", makeDate(4, 19)),
+    mockGame("mock-group-c-1", "França", "Senegal", "C", makeDate(5, 16)),
+    mockGame("mock-group-c-2", "Alemanha", "Uruguai", "C", makeDate(6, 19)),
+    mockGame(
+      "mock-r32-1",
+      "Vencedor Grupo A",
+      "2º lugar Grupo B",
+      undefined,
+      makeDate(18, 16),
+      "16 avos de final",
+    ),
+    mockGame(
+      "mock-r16-1",
+      "Vencedor Jogo 49",
+      "Vencedor Jogo 50",
+      undefined,
+      makeDate(24, 18),
+      "Oitavas de final",
+    ),
+  ];
+}
+
+function mockGame(
+  id: string,
+  teamHome: string,
+  teamAway: string,
+  groupName: string | undefined,
+  startsAt: string,
+  stage = "Fase de grupos",
+): Game {
+  return {
+    id,
+    externalId: id,
+    groupName,
+    lastLiveSyncAt: new Date().toISOString(),
+    liveMinute: null,
+    scoreAway: null,
+    scoreHome: null,
+    stage,
+    startsAt,
+    status: "scheduled",
+    teamAway,
+    teamHome,
+  };
 }

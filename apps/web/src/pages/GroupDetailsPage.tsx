@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -17,6 +17,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
@@ -135,8 +136,7 @@ export function GroupDetailsPage() {
       </Button>
 
       {isLoading && (
-        <EmptyState
-          emoji="👥"
+        <LoadingState
           title="Carregando grupo"
           description="Buscando participantes e detalhes do convite."
         />

@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { GameHeader } from "../components/GameHeader";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
@@ -141,8 +142,7 @@ export function GamesPage() {
       </Stack>
 
       {isLoading && (
-        <EmptyState
-          emoji="?"
+        <LoadingState
           title="Carregando jogos"
           description="Buscando a tabela oficial da Copa 2026."
         />
@@ -347,7 +347,7 @@ const stageTabsConfig = [
   {
     id: "group",
     label: "Fase de grupos",
-    match: (game: Game) => Boolean(game.groupName),
+    match: (game: Game) => game.stage === "Fase de grupos",
   },
   {
     id: "r32",
@@ -399,7 +399,10 @@ function groupGamesForTab(tab?: StageTab) {
   const grouped = new Map<string, Game[]>();
 
   for (const game of tab.games) {
-    const label = game.groupName ? `Grupo ${game.groupName}` : game.stage;
+    const label =
+      tab.id === "group" && game.groupName
+        ? `Grupo ${game.groupName}`
+        : game.stage;
     grouped.set(label, [...(grouped.get(label) ?? []), game]);
   }
 

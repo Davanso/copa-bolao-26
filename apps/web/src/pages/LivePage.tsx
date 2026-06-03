@@ -1,6 +1,7 @@
-﻿import { Alert, Grid, Stack, Typography } from "@mui/material";
+import { Alert, Grid, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { GameHeader } from "../components/GameHeader";
 import { api } from "../services/api";
 import type { Game } from "../services/types";
@@ -20,8 +21,7 @@ export function LivePage() {
       </Typography>
 
       {isLoading && (
-        <EmptyState
-          emoji="🔥"
+        <LoadingState
           title="Buscando jogos ao vivo"
           description="Estamos consultando a API da Copa."
         />

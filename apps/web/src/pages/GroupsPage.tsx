@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Button,
@@ -12,6 +12,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import type { Group } from "../services/types";
@@ -122,8 +123,7 @@ export function GroupsPage() {
       </Grid>
 
       {isLoading && (
-        <EmptyState
-          emoji="👥"
+        <LoadingState
           title="Carregando grupos"
           description="Estamos buscando os grupos que você participa."
         />
