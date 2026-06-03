@@ -9,10 +9,10 @@ import {
   Grid,
   Paper,
   Stack,
+  SvgIcon,
   TextField,
   Typography,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { GameHeader } from "../components/GameHeader";
@@ -20,6 +20,8 @@ import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import { isGuessLocked } from "../services/gameHelpers";
 import type { Game } from "../services/types";
+
+const expandedGroupsStorageKey = "bolao.games.expandedGroups";
 
 export function GamesPage() {
   const queryClient = useQueryClient();
@@ -36,8 +38,8 @@ export function GamesPage() {
     () => groupedGames.map(([groupName]) => groupName),
     [groupedGames],
   );
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    () => new Set(),
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() =>
+    readExpandedGroups(),
   );
   const hasGames = groupedGames.length > 0;
   const allExpanded =
@@ -45,13 +47,23 @@ export function GamesPage() {
 
   useEffect(() => {
     setExpandedGroups((currentGroups) => {
-      if (currentGroups.size > 0 || groupLabels.length === 0) {
-        return currentGroups;
+      if (groupLabels.length === 0) {
+        return new Set();
       }
 
-      return new Set(groupLabels.slice(0, 2));
+      const visibleGroups = new Set(groupLabels);
+      return new Set(
+        [...currentGroups].filter((groupName) => visibleGroups.has(groupName)),
+      );
     });
   }, [groupLabels]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      expandedGroupsStorageKey,
+      JSON.stringify([...expandedGroups]),
+    );
+  }, [expandedGroups]);
 
   const mutation = useMutation({
     mutationFn: ({
@@ -188,6 +200,14 @@ export function GamesPage() {
   );
 }
 
+function ExpandMoreIcon() {
+  return (
+    <SvgIcon fontSize="medium" viewBox="0 0 24 24">
+      <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+    </SvgIcon>
+  );
+}
+
 function GuessForm({
   game,
   saving,
@@ -198,8 +218,25 @@ function GuessForm({
   onSave: (home: number, away: number) => void;
 }) {
   const locked = isGuessLocked(game);
-  const [home, setHome] = useState(game.myGuess?.guessHome ?? 0);
-  const [away, setAway] = useState(game.myGuess?.guessAway ?? 0);
+  const [home, setHome] = useState(scoreToInput(game.myGuess?.guessHome));
+  const [away, setAway] = useState(scoreToInput(game.myGuess?.guessAway));
+  const homeScore = inputToScore(home);
+  const awayScore = inputToScore(away);
+  const canSave =
+    !locked &&
+    !saving &&
+    homeScore !== null &&
+    awayScore !== null &&
+    homeScore <= 30 &&
+    awayScore <= 30;
+
+  function saveGuess() {
+    if (homeScore === null || awayScore === null) {
+      return;
+    }
+
+    onSave(homeScore, awayScore);
+  }
 
   return (
     <Stack gap={1.25} sx={{ mt: 1.5 }}>
@@ -207,27 +244,27 @@ function GuessForm({
       <Stack direction={{ xs: "column", sm: "row" }} gap={1.25}>
         <TextField
           label={game.teamHome}
-          type="number"
+          placeholder="0"
           value={home}
           disabled={locked || saving}
-          inputProps={{ min: 0, max: 30, inputMode: "numeric" }}
+          inputProps={{ inputMode: "numeric", maxLength: 2, pattern: "[0-9]*" }}
           sx={{ minWidth: { xs: "100%", sm: 150 }, flex: 1 }}
-          onChange={(event) => setHome(Number(event.target.value))}
+          onChange={(event) => setHome(normalizeScoreInput(event.target.value))}
         />
         <TextField
           label={game.teamAway}
-          type="number"
+          placeholder="0"
           value={away}
           disabled={locked || saving}
-          inputProps={{ min: 0, max: 30, inputMode: "numeric" }}
+          inputProps={{ inputMode: "numeric", maxLength: 2, pattern: "[0-9]*" }}
           sx={{ minWidth: { xs: "100%", sm: 150 }, flex: 1 }}
-          onChange={(event) => setAway(Number(event.target.value))}
+          onChange={(event) => setAway(normalizeScoreInput(event.target.value))}
         />
         <Button
           size="large"
           variant="contained"
-          disabled={locked || saving}
-          onClick={() => onSave(home, away)}
+          disabled={!canSave}
+          onClick={saveGuess}
           sx={{ minWidth: { xs: "100%", sm: 170 } }}
         >
           {game.myGuess ? "Atualizar" : "Salvar"}
@@ -241,6 +278,23 @@ function GuessForm({
       )}
     </Stack>
   );
+}
+
+function scoreToInput(score?: number) {
+  return score === undefined ? "" : String(score);
+}
+
+function inputToScore(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const score = Number(value);
+  return Number.isInteger(score) && score >= 0 ? score : null;
+}
+
+function normalizeScoreInput(value: string) {
+  return value.replace(/\D/g, "").slice(0, 2);
 }
 
 function groupGamesByStage(games: Game[]) {
@@ -262,11 +316,21 @@ function groupGamesByStage(games: Game[]) {
         ] as [string, Game[]],
     )
     .sort(([firstLabel], [secondLabel]) =>
-      compareStageLabels(firstLabel, secondLabel),
+      compareStageGroups(
+        firstLabel,
+        secondLabel,
+        grouped.get(firstLabel) ?? [],
+        grouped.get(secondLabel) ?? [],
+      ),
     );
 }
 
-function compareStageLabels(firstLabel: string, secondLabel: string) {
+function compareStageGroups(
+  firstLabel: string,
+  secondLabel: string,
+  firstGames: Game[],
+  secondGames: Game[],
+) {
   const firstOrder = stageOrder(firstLabel);
   const secondOrder = stageOrder(secondLabel);
 
@@ -274,7 +338,7 @@ function compareStageLabels(firstLabel: string, secondLabel: string) {
     return firstOrder - secondOrder;
   }
 
-  return firstLabel.localeCompare(secondLabel, "pt-BR", { numeric: true });
+  return firstGroupDate(firstGames) - firstGroupDate(secondGames);
 }
 
 function stageOrder(label: string) {
@@ -292,4 +356,30 @@ function stageOrder(label: string) {
   };
 
   return knockoutOrder[label] ?? 99;
+}
+
+function firstGroupDate(games: Game[]) {
+  return Math.min(...games.map((game) => Date.parse(game.startsAt)));
+}
+
+function readExpandedGroups() {
+  try {
+    const storedGroups = localStorage.getItem(expandedGroupsStorageKey);
+
+    if (!storedGroups) {
+      return new Set<string>();
+    }
+
+    const parsedGroups = JSON.parse(storedGroups);
+
+    if (!Array.isArray(parsedGroups)) {
+      return new Set<string>();
+    }
+
+    return new Set(
+      parsedGroups.filter((groupName) => typeof groupName === "string"),
+    );
+  } catch {
+    return new Set<string>();
+  }
 }

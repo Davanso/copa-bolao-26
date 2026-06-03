@@ -57,9 +57,16 @@ export function GroupsPage() {
       showToast(apiMessage(err, "Não foi possível entrar no grupo."), "error"),
   });
 
-  function copyInvite(code: string) {
-    navigator.clipboard?.writeText(code);
-    showToast("Código copiado para a área de transferência.", "success");
+  async function copyInvite(code: string) {
+    try {
+      await copyToClipboard(code);
+      showToast("Código copiado para a área de transferência.", "success");
+    } catch {
+      showToast(
+        "Não foi possível copiar automaticamente. Selecione o código na tela.",
+        "error",
+      );
+    }
   }
 
   return (
@@ -165,4 +172,28 @@ export function GroupsPage() {
       </Grid>
     </Stack>
   );
+}
+
+async function copyToClipboard(value: string) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "");
+  textArea.style.left = "-9999px";
+  textArea.style.position = "fixed";
+  textArea.style.top = "0";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textArea);
+
+  if (!copied) {
+    throw new Error("Clipboard indisponível");
+  }
 }

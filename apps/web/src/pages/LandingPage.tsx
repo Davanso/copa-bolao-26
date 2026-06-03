@@ -84,10 +84,6 @@ export function LandingPage() {
               sx={{ width: 150, mb: 2 }}
             />
             <Typography variant="h4">Copa dos Palpites</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Verde, azul, vermelho e aquele drama gostoso de placar aos 48 do
-              segundo tempo.
-            </Typography>
           </Paper>
         </Grid>
       </Grid>

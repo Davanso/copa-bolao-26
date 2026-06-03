@@ -36,12 +36,25 @@ export function GameHeader({ game }: { game: Game }) {
           />
         </Stack>
 
-        <Stack gap={0.75}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          alignItems={{ xs: "stretch", sm: "center" }}
+          justifyContent="space-between"
+          gap={{ xs: 0.75, sm: 1.25 }}
+        >
           <TeamName name={game.teamHome} />
-          <Typography color="text.secondary" fontWeight={800}>
+          <Typography
+            color="text.secondary"
+            fontWeight={900}
+            sx={{
+              flex: "0 0 auto",
+              lineHeight: 1,
+              textAlign: "center",
+            }}
+          >
             x
           </Typography>
-          <TeamName name={game.teamAway} />
+          <TeamName name={game.teamAway} align="right" />
         </Stack>
 
         <Typography color="text.secondary">{score}</Typography>
@@ -53,11 +66,30 @@ export function GameHeader({ game }: { game: Game }) {
   );
 }
 
-function TeamName({ name }: { name: string }) {
+function TeamName({
+  name,
+  align = "left",
+}: {
+  name: string;
+  align?: "left" | "right";
+}) {
   const flagUrl = flagUrlForTeam(name);
+  const isRight = align === "right";
 
   return (
-    <Stack direction="row" alignItems="center" gap={1}>
+    <Stack
+      direction={{ xs: "row", sm: isRight ? "row-reverse" : "row" }}
+      alignItems="center"
+      gap={1}
+      sx={{
+        flex: "1 1 0",
+        justifyContent: {
+          xs: "center",
+          sm: isRight ? "flex-start" : "flex-start",
+        },
+        minWidth: 0,
+      }}
+    >
       {flagUrl && (
         <Box
           alt={`Bandeira de ${name}`}
@@ -72,7 +104,20 @@ function TeamName({ name }: { name: string }) {
           }}
         />
       )}
-      <Typography variant="h6">{name}</Typography>
+      <Typography
+        variant="h6"
+        title={name}
+        sx={{
+          minWidth: 0,
+          overflow: { xs: "visible", sm: "hidden" },
+          textAlign: { xs: "center", sm: isRight ? "right" : "left" },
+          textOverflow: { xs: "clip", sm: "ellipsis" },
+          whiteSpace: { xs: "normal", sm: "nowrap" },
+          wordBreak: "break-word",
+        }}
+      >
+        {name}
+      </Typography>
     </Stack>
   );
 }
