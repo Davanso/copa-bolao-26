@@ -12,13 +12,29 @@ import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler, HttpError } from "./shared/errors/http.js";
 
 const app = express();
-const allowedOrigins = (
-  process.env.WEB_ORIGIN ??
-  "http://localhost:5173,http://127.0.0.1:5173,http://172.18.224.1:5173,https://copa-bolao-26.vercel.app,https://copa-bolao-26-7oo6bzzii-guilhermes-projects-655e1abc.vercel.app"
-)
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://172.18.224.1:5173",
+  "https://copa-bolao-26.vercel.app",
+  "https://copa-bolao-26-7oo6bzzii-guilhermes-projects-655e1abc.vercel.app",
+];
+const configuredAllowedOrigins = (process.env.WEB_ORIGIN ?? "")
   .split(",")
-  .map((origin) => origin.trim());
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = [
+  ...new Set(
+    [...defaultAllowedOrigins, ...configuredAllowedOrigins].map(
+      normalizeOrigin,
+    ),
+  ),
+];
 const isProduction = process.env.NODE_ENV === "production";
+
+function normalizeOrigin(origin: string) {
+  return origin.replace(/\/$/, "");
+}
 
 function isPrivateDevOrigin(origin: string) {
   if (isProduction) {
@@ -47,10 +63,12 @@ function isPrivateDevOrigin(origin: string) {
 app.use(
   cors({
     origin(origin, callback) {
+      const normalizedOrigin = origin ? normalizeOrigin(origin) : origin;
+
       if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        isPrivateDevOrigin(origin)
+        !normalizedOrigin ||
+        allowedOrigins.includes(normalizedOrigin) ||
+        isPrivateDevOrigin(normalizedOrigin)
       ) {
         return callback(null, true);
       }
