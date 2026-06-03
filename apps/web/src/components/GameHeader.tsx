@@ -5,7 +5,7 @@ import {
   statusColor,
   statusLabel,
 } from "../services/gameHelpers";
-import { flagForTeam } from "../services/teamFlags";
+import { flagUrlForTeam } from "../services/teamFlags";
 
 export function GameHeader({ game }: { game: Game }) {
   const score =
@@ -54,14 +54,23 @@ export function GameHeader({ game }: { game: Game }) {
 }
 
 function TeamName({ name }: { name: string }) {
-  const flag = flagForTeam(name);
+  const flagUrl = flagUrlForTeam(name);
 
   return (
     <Stack direction="row" alignItems="center" gap={1}>
-      {flag && (
-        <Box component="span" sx={{ fontSize: 26, lineHeight: 1 }}>
-          {flag}
-        </Box>
+      {flagUrl && (
+        <Box
+          alt={`Bandeira de ${name}`}
+          component="img"
+          src={flagUrl}
+          sx={{
+            borderRadius: 0.75,
+            boxShadow: "0 4px 12px rgba(15, 23, 42, 0.18)",
+            height: 20,
+            objectFit: "cover",
+            width: 30,
+          }}
+        />
       )}
       <Typography variant="h6">{name}</Typography>
     </Stack>
