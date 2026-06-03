@@ -338,11 +338,15 @@ function compareStageGroups(
     return firstOrder - secondOrder;
   }
 
+  if (isGroupLabel(firstLabel) && isGroupLabel(secondLabel)) {
+    return firstLabel.localeCompare(secondLabel, "pt-BR", { numeric: true });
+  }
+
   return firstGroupDate(firstGames) - firstGroupDate(secondGames);
 }
 
 function stageOrder(label: string) {
-  if (label.startsWith("Grupo ")) {
+  if (isGroupLabel(label)) {
     return 0;
   }
 
@@ -356,6 +360,10 @@ function stageOrder(label: string) {
   };
 
   return knockoutOrder[label] ?? 99;
+}
+
+function isGroupLabel(label: string) {
+  return label.startsWith("Grupo ");
 }
 
 function firstGroupDate(games: Game[]) {

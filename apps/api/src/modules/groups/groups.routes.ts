@@ -126,6 +126,23 @@ groupsRouter.post(
   },
 );
 
+groupsRouter.put("/:groupId", requireAuth, async (req, res) => {
+  const groupId = String(req.params.groupId);
+  const body = groupSchema.parse(req.body);
+  await ensureOwner(groupId, req.user!.id);
+
+  const group = await prisma.bolaoGroup.update({
+    where: { id: groupId },
+    data: {
+      name: body.name,
+      description: body.description,
+    },
+    include: { prizeRules: { orderBy: { position: "asc" } } },
+  });
+
+  res.json({ group });
+});
+
 groupsRouter.put("/:groupId/symbolic-prize", requireAuth, async (req, res) => {
   const groupId = String(req.params.groupId);
   const body = symbolicPrizeSchema.parse(req.body);

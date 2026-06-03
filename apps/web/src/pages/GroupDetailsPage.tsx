@@ -4,6 +4,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
   Paper,
   Stack,
@@ -43,6 +47,12 @@ export function GroupDetailsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const [deleteGroupOpen, setDeleteGroupOpen] = useState(false);
+  const [editGroupOpen, setEditGroupOpen] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [memberToRemove, setMemberToRemove] = useState<GroupMember | null>(
+    null,
+  );
   const { data, error, isLoading } = useQuery<{
     group: Group;
     members: GroupMember[];
@@ -68,6 +78,21 @@ export function GroupDetailsPage() {
         "error",
       ),
   });
+  const updateGroup = useMutation({
+    mutationFn: () =>
+      api.put(`/groups/${groupId}`, {
+        description: data?.group.description,
+        name: groupName.trim(),
+      }),
+    onSuccess: () => {
+      setEditGroupOpen(false);
+      showToast("Nome do grupo atualizado.", "success");
+      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groups-me"] });
+    },
+    onError: (err) =>
+      showToast(apiMessage(err, "Não foi possível editar o grupo."), "error"),
+  });
   const deleteGroup = useMutation({
     mutationFn: () => api.delete(`/groups/${groupId}`),
     onSuccess: () => {
@@ -82,6 +107,7 @@ export function GroupDetailsPage() {
     mutationFn: (userId: string) =>
       api.delete(`/groups/${groupId}/members/${userId}`),
     onSuccess: () => {
+      setMemberToRemove(null);
       showToast("Participante removido do grupo.", "success");
       queryClient.invalidateQueries({ queryKey: ["group", groupId] });
       queryClient.invalidateQueries({ queryKey: ["group-ranking"] });
@@ -95,29 +121,9 @@ export function GroupDetailsPage() {
 
   const isOwner = data?.group.ownerUserId === user?.id;
 
-  function confirmDeleteGroup() {
-    if (!data) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Deletar o grupo "${data.group.name}"? Essa ação não pode ser desfeita.`,
-    );
-
-    if (confirmed) {
-      deleteGroup.mutate();
-    }
-  }
-
-  function confirmRemoveMember(member: GroupMember) {
-    const confirmed = window.confirm(
-      `Remover ${member.user.username} deste grupo?`,
-    );
-
-    if (confirmed) {
-      removeMember.mutate(member.userId);
-    }
-  }
+  useEffect(() => {
+    setGroupName(data?.group.name ?? "");
+  }, [data?.group.name]);
 
   return (
     <Stack gap={2.5}>
@@ -156,14 +162,23 @@ export function GroupDetailsPage() {
               >
                 <Typography variant="h4">{data.group.name}</Typography>
                 {isOwner && (
-                  <Button
-                    color="error"
-                    variant="outlined"
-                    disabled={deleteGroup.isPending}
-                    onClick={confirmDeleteGroup}
-                  >
-                    Deletar grupo
-                  </Button>
+                  <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
+                    <Button
+                      variant="outlined"
+                      disabled={updateGroup.isPending}
+                      onClick={() => setEditGroupOpen(true)}
+                    >
+                      Editar nome
+                    </Button>
+                    <Button
+                      color="error"
+                      variant="outlined"
+                      disabled={deleteGroup.isPending}
+                      onClick={() => setDeleteGroupOpen(true)}
+                    >
+                      Deletar grupo
+                    </Button>
+                  </Stack>
                 )}
               </Stack>
               <Typography color="text.secondary">
@@ -205,7 +220,7 @@ export function GroupDetailsPage() {
                           size="small"
                           variant="outlined"
                           disabled={removeMember.isPending}
-                          onClick={() => confirmRemoveMember(member)}
+                          onClick={() => setMemberToRemove(member)}
                         >
                           Remover
                         </Button>
@@ -216,9 +231,128 @@ export function GroupDetailsPage() {
               </Grid>
             ))}
           </Grid>
+
+          <ConfirmDialog
+            open={deleteGroupOpen}
+            title="Deletar grupo?"
+            confirmLabel="Sim, deletar grupo"
+            loading={deleteGroup.isPending}
+            onClose={() => setDeleteGroupOpen(false)}
+            onConfirm={() => deleteGroup.mutate()}
+          >
+            Você está prestes a deletar o grupo{" "}
+            <strong>{data.group.name}</strong>. Essa ação remove participantes,
+            premiação simbólica e não pode ser desfeita.
+          </ConfirmDialog>
+
+          <ConfirmDialog
+            open={Boolean(memberToRemove)}
+            title="Remover participante?"
+            confirmLabel="Remover participante"
+            loading={removeMember.isPending}
+            onClose={() => setMemberToRemove(null)}
+            onConfirm={() => {
+              if (memberToRemove) {
+                removeMember.mutate(memberToRemove.userId);
+              }
+            }}
+          >
+            {memberToRemove && (
+              <>
+                Remover <strong>{memberToRemove.user.username}</strong> deste
+                grupo? Ele deixa de aparecer no ranking e na premiação
+                simbólica.
+              </>
+            )}
+          </ConfirmDialog>
+
+          <Dialog
+            open={editGroupOpen}
+            onClose={
+              updateGroup.isPending ? undefined : () => setEditGroupOpen(false)
+            }
+            fullWidth
+          >
+            <DialogTitle>Editar nome do grupo</DialogTitle>
+            <DialogContent>
+              <Stack gap={2} sx={{ pt: 1 }}>
+                <Typography color="text.secondary">
+                  Escolha um nome claro para sua turma encontrar o grupo com
+                  facilidade.
+                </Typography>
+                <TextField
+                  autoFocus
+                  label="Nome do grupo"
+                  value={groupName}
+                  disabled={updateGroup.isPending}
+                  inputProps={{ maxLength: 48 }}
+                  onChange={(event) => setGroupName(event.target.value)}
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ p: 2.5, pt: 1 }}>
+              <Button
+                disabled={updateGroup.isPending}
+                onClick={() => setEditGroupOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                disabled={
+                  updateGroup.isPending ||
+                  groupName.trim().length < 3 ||
+                  groupName.trim() === data.group.name
+                }
+                onClick={() => updateGroup.mutate()}
+              >
+                Salvar nome
+              </Button>
+            </DialogActions>
+          </Dialog>
         </>
       )}
     </Stack>
+  );
+}
+
+function ConfirmDialog({
+  children,
+  confirmLabel,
+  loading,
+  onClose,
+  onConfirm,
+  open,
+  title,
+}: {
+  children: React.ReactNode;
+  confirmLabel: string;
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  open: boolean;
+  title: string;
+}) {
+  return (
+    <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth>
+      <DialogTitle>{title}</DialogTitle>
+      <DialogContent>
+        <Typography color="text.secondary">{children}</Typography>
+      </DialogContent>
+      <DialogActions sx={{ p: 2.5, pt: 1 }}>
+        <Button disabled={loading} onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button
+          color="error"
+          variant="contained"
+          disabled={loading}
+          onClick={onConfirm}
+        >
+          {confirmLabel}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

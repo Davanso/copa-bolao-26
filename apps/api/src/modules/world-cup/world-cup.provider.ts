@@ -79,9 +79,23 @@ export async function getWorldCupGames() {
     return cachedGames;
   }
 
-  const response = await fetch(providerUrl);
+  let response: Response;
+
+  try {
+    response = await fetch(providerUrl);
+  } catch (error) {
+    if (cachedGames.length) {
+      return cachedGames;
+    }
+
+    throw error;
+  }
 
   if (!response.ok) {
+    if (cachedGames.length) {
+      return cachedGames;
+    }
+
     throw new Error(`World Cup API retornou HTTP ${response.status}`);
   }
 

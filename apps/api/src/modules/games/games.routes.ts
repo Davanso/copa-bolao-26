@@ -1,4 +1,5 @@
-﻿import { Router, type RequestHandler } from "express";
+import { Router, type RequestHandler } from "express";
+import type { Game } from "../../db/types.js";
 import { prisma } from "../../db/prisma.js";
 import { requireAdmin, requireAuth } from "../../shared/auth/auth.js";
 import { HttpError } from "../../shared/errors/http.js";
@@ -14,7 +15,7 @@ export const gamesRouter = Router();
 
 const saveResult: RequestHandler = async (req, res) => {
   const body = resultSchema.parse(req.body);
-  const game = await getWorldCupGame(String(req.params.gameId));
+  const game = await getGameFromProvider(String(req.params.gameId));
 
   if (!game) {
     throw new HttpError(404, "Jogo não encontrado");
@@ -51,7 +52,7 @@ const saveResult: RequestHandler = async (req, res) => {
 
 gamesRouter.get("/", requireAuth, async (req, res) => {
   const { status, team, stage } = req.query;
-  const providerGames = await getWorldCupGames();
+  const providerGames = await getGamesFromProvider();
   const myGuesses = await prisma.guess.findMany({
     where: { userId: req.user!.id },
   });
@@ -65,7 +66,7 @@ gamesRouter.get("/", requireAuth, async (req, res) => {
           .toLowerCase()
           .includes(String(team).toLowerCase()),
     )
-    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+    .sort(compareGames)
     .map((game) => ({
       ...game,
       myGuess: myGuesses.find((guess) => guess.gameId === game.id) ?? null,
@@ -75,7 +76,7 @@ gamesRouter.get("/", requireAuth, async (req, res) => {
 });
 
 gamesRouter.get("/:id", requireAuth, async (req, res) => {
-  const game = await getWorldCupGame(String(req.params.id));
+  const game = await getGameFromProvider(String(req.params.id));
 
   if (!game) {
     throw new HttpError(404, "Jogo não encontrado");
@@ -95,3 +96,67 @@ gamesRouter.post("/:gameId/guess", requireAuth, upsertGuess);
 gamesRouter.put("/:gameId/guess", requireAuth, upsertGuess);
 gamesRouter.post("/:gameId/result", requireAuth, requireAdmin, saveResult);
 gamesRouter.put("/:gameId/result", requireAuth, requireAdmin, saveResult);
+
+async function getGamesFromProvider() {
+  try {
+    return await getWorldCupGames();
+  } catch {
+    throw new HttpError(
+      503,
+      "Não foi possível conectar com a API oficial de jogos. Tente novamente em instantes.",
+    );
+  }
+}
+
+async function getGameFromProvider(gameId: string) {
+  try {
+    return await getWorldCupGame(gameId);
+  } catch {
+    throw new HttpError(
+      503,
+      "Não foi possível conectar com a API oficial de jogos. Tente novamente em instantes.",
+    );
+  }
+}
+
+function compareGames(firstGame: Game, secondGame: Game) {
+  const firstOrder = gameStageOrder(firstGame);
+  const secondOrder = gameStageOrder(secondGame);
+
+  if (firstOrder !== secondOrder) {
+    return firstOrder - secondOrder;
+  }
+
+  if (firstGame.groupName && secondGame.groupName) {
+    const groupOrder = firstGame.groupName.localeCompare(
+      secondGame.groupName,
+      "pt-BR",
+      {
+        numeric: true,
+      },
+    );
+
+    if (groupOrder !== 0) {
+      return groupOrder;
+    }
+  }
+
+  return Date.parse(firstGame.startsAt) - Date.parse(secondGame.startsAt);
+}
+
+function gameStageOrder(game: Game) {
+  if (game.groupName) {
+    return 0;
+  }
+
+  const knockoutOrder: Record<string, number> = {
+    "16 avos de final": 1,
+    "Oitavas de final": 2,
+    "Quartas de final": 3,
+    Semifinal: 4,
+    Final: 5,
+    "Disputa de terceiro lugar": 6,
+  };
+
+  return knockoutOrder[game.stage] ?? 99;
+}

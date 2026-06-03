@@ -1,6 +1,8 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Avatar,
+  Box,
   Button,
   Chip,
   Grid,
@@ -17,6 +19,27 @@ const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
+
+const podiumConfig = [
+  {
+    accent: "#f6c343",
+    emoji: "🥇",
+    height: 172,
+    label: "Campeão",
+  },
+  {
+    accent: "#8fb3ff",
+    emoji: "🥈",
+    height: 142,
+    label: "Vice",
+  },
+  {
+    accent: "#da8c4b",
+    emoji: "🥉",
+    height: 122,
+    label: "Terceiro",
+  },
+];
 
 export function RankingPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -49,6 +72,9 @@ export function RankingPage() {
       ]),
     );
   }, [selectedGroup]);
+  const ranking = rankingQuery.data?.ranking ?? [];
+  const podium = ranking.slice(0, 3);
+  const others = ranking.slice(3);
 
   return (
     <Stack gap={2.5}>
@@ -102,7 +128,14 @@ export function RankingPage() {
       </Grid>
 
       {selectedGroup && (
-        <Paper sx={{ p: 2 }}>
+        <Paper
+          sx={{
+            background:
+              "linear-gradient(135deg, rgba(0,156,59,.14), rgba(0,82,180,.12))",
+            border: "1px solid rgba(0, 82, 180, .14)",
+            p: 2.5,
+          }}
+        >
           <Stack gap={0.75}>
             <Typography variant="h5">Ranking: {selectedGroup.name}</Typography>
             <Typography color="text.secondary">
@@ -112,6 +145,7 @@ export function RankingPage() {
           </Stack>
         </Paper>
       )}
+
       {rankingQuery.isLoading && selectedGroupId && (
         <EmptyState
           emoji="📊"
@@ -130,40 +164,129 @@ export function RankingPage() {
         />
       )}
 
-      {rankingQuery.data?.ranking.map((item, index) => {
-        const position = index + 1;
-        const symbolicPrize = prizeByPosition.get(position) ?? 0;
+      {podium.length > 0 && (
+        <Grid container spacing={2} alignItems="flex-end">
+          {podium.map((item, index) => (
+            <Grid item xs={12} md={4} key={item.userId}>
+              <PodiumCard
+                item={item}
+                position={index + 1}
+                prize={prizeByPosition.get(index + 1) ?? 0}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
-        return (
-          <Paper key={item.userId} sx={{ p: 2 }}>
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              alignItems={{ xs: "flex-start", sm: "center" }}
-              justifyContent="space-between"
-              gap={1.5}
-            >
-              <Stack direction="row" gap={2} alignItems="center">
-                <Chip
-                  color={index < 3 ? "secondary" : "default"}
-                  label={`#${position}`}
-                />
-                <Typography variant="h6">{item.username}</Typography>
-              </Stack>
-              <Stack alignItems={{ xs: "flex-start", sm: "flex-end" }}>
-                <Typography>
-                  {item.totalPoints} pts · {item.exactScores} cravados ·{" "}
-                  {item.scoredGuesses} pontuados
-                </Typography>
-                {symbolicPrize > 0 && (
-                  <Typography color="secondary.main">
-                    Premiação simbólica: {currency.format(symbolicPrize)}
-                  </Typography>
-                )}
-              </Stack>
-            </Stack>
-          </Paper>
-        );
-      })}
+      {others.length > 0 && (
+        <Stack gap={1.25}>
+          <Typography variant="h6">Classificação geral</Typography>
+          {others.map((item, index) => (
+            <RankingRow
+              item={item}
+              key={item.userId}
+              position={index + 4}
+              prize={prizeByPosition.get(index + 4) ?? 0}
+            />
+          ))}
+        </Stack>
+      )}
     </Stack>
   );
+}
+
+function PodiumCard({
+  item,
+  position,
+  prize,
+}: {
+  item: RankingItem;
+  position: number;
+  prize: number;
+}) {
+  const config = podiumConfig[position - 1];
+
+  return (
+    <Paper
+      sx={{
+        border: `1px solid ${config.accent}55`,
+        overflow: "hidden",
+      }}
+    >
+      <Stack alignItems="center" gap={1.25} sx={{ p: 2 }}>
+        <Typography fontSize={34}>{config.emoji}</Typography>
+        <Avatar sx={{ bgcolor: config.accent, color: "#10203f" }}>
+          {initials(item.username)}
+        </Avatar>
+        <Box textAlign="center">
+          <Typography variant="h6">{item.username}</Typography>
+          <Typography color="text.secondary">{config.label}</Typography>
+        </Box>
+        <Chip label={`${item.totalPoints} pts`} color="primary" />
+      </Stack>
+      <Box
+        sx={{
+          bgcolor: `${config.accent}24`,
+          borderTop: `1px solid ${config.accent}55`,
+          minHeight: { xs: 90, md: config.height },
+          p: 2,
+          textAlign: "center",
+        }}
+      >
+        <Typography variant="h4">#{position}</Typography>
+        <Typography color="text.secondary">
+          {item.exactScores} cravados · {item.scoredGuesses} pontuados
+        </Typography>
+        {prize > 0 && (
+          <Typography color="secondary.main" fontWeight={800}>
+            {currency.format(prize)}
+          </Typography>
+        )}
+      </Box>
+    </Paper>
+  );
+}
+
+function RankingRow({
+  item,
+  position,
+  prize,
+}: {
+  item: RankingItem;
+  position: number;
+  prize: number;
+}) {
+  return (
+    <Paper sx={{ p: 2 }}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        justifyContent="space-between"
+        gap={1.5}
+      >
+        <Stack direction="row" gap={1.5} alignItems="center">
+          <Chip label={`#${position}`} />
+          <Avatar sx={{ bgcolor: "primary.main" }}>
+            {initials(item.username)}
+          </Avatar>
+          <Typography variant="h6">{item.username}</Typography>
+        </Stack>
+        <Stack alignItems={{ xs: "flex-start", sm: "flex-end" }}>
+          <Typography>
+            {item.totalPoints} pts · {item.exactScores} cravados ·{" "}
+            {item.scoredGuesses} pontuados
+          </Typography>
+          {prize > 0 && (
+            <Typography color="secondary.main">
+              Premiação simbólica: {currency.format(prize)}
+            </Typography>
+          )}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function initials(username: string) {
+  return username.slice(0, 2).toUpperCase();
 }
