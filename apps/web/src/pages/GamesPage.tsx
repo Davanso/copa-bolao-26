@@ -22,9 +22,23 @@ import { GameHeader } from "../components/GameHeader";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import { isGuessLocked } from "../services/gameHelpers";
-import type { Game } from "../services/types";
+import type { Game, Guess } from "../services/types";
 
 const expandedGroupsStorageKey = "bolao.games.expandedGroups";
+
+type GamesResponse = {
+  games: Game[];
+};
+
+type GuessesResponse = {
+  guesses: Guess[];
+};
+
+type GuessPayload = {
+  gameId: string;
+  guessHome: number;
+  guessAway: number;
+};
 
 export function GamesPage() {
   const queryClient = useQueryClient();
@@ -85,25 +99,99 @@ export function GamesPage() {
   }, [expandedGroups]);
 
   const mutation = useMutation({
-    mutationFn: ({
-      gameId,
-      guessHome,
-      guessAway,
-    }: {
-      gameId: string;
-      guessHome: number;
-      guessAway: number;
-    }) => api.post(`/games/${gameId}/guess`, { guessHome, guessAway }),
-    onSuccess: () => {
-      showToast("Palpite salvo com sucesso!", "success");
-      queryClient.invalidateQueries({ queryKey: ["games"] });
-      queryClient.invalidateQueries({ queryKey: ["guesses-me"] });
+    mutationFn: (payload: GuessPayload) =>
+      api.post<{ guess: Guess }>(`/games/${payload.gameId}/guess`, {
+        guessAway: payload.guessAway,
+        guessHome: payload.guessHome,
+      }),
+    onMutate: async (payload) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ["games"] }),
+        queryClient.cancelQueries({ queryKey: ["guesses-me"] }),
+      ]);
+
+      const previousGames = queryClient.getQueryData<GamesResponse>([
+        "games",
+        "scheduled",
+      ]);
+      const previousGuesses = queryClient.getQueryData<GuessesResponse>([
+        "guesses-me",
+      ]);
+      const game = previousGames?.games.find(
+        (item) => item.id === payload.gameId,
+      );
+      const optimisticGuess: Guess = {
+        game,
+        gameId: payload.gameId,
+        guessAway: payload.guessAway,
+        guessHome: payload.guessHome,
+        id: game?.myGuess?.id ?? `temp-${payload.gameId}`,
+        points: game?.myGuess?.points ?? null,
+      };
+
+      queryClient.setQueryData<GamesResponse>(
+        ["games", "scheduled"],
+        (current) =>
+          current
+            ? {
+                ...current,
+                games: current.games.map((item) =>
+                  item.id === payload.gameId
+                    ? { ...item, myGuess: optimisticGuess }
+                    : item,
+                ),
+              }
+            : current,
+      );
+      queryClient.setQueryData<GuessesResponse>(["guesses-me"], (current) => {
+        if (!current) {
+          return current;
+        }
+
+        const exists = current.guesses.some(
+          (guess) => guess.gameId === payload.gameId,
+        );
+
+        return {
+          guesses: exists
+            ? current.guesses.map((guess) =>
+                guess.gameId === payload.gameId
+                  ? { ...guess, ...optimisticGuess }
+                  : guess,
+              )
+            : [optimisticGuess, ...current.guesses],
+        };
+      });
+
+      return { previousGames, previousGuesses };
     },
-    onError: (err: any) => {
+    onSuccess: ({ data }, payload) => {
+      queryClient.setQueryData<GamesResponse>(
+        ["games", "scheduled"],
+        (current) =>
+          current
+            ? {
+                ...current,
+                games: current.games.map((game) =>
+                  game.id === payload.gameId
+                    ? { ...game, myGuess: data.guess }
+                    : game,
+                ),
+              }
+            : current,
+      );
+      showToast("Palpite salvo com sucesso!", "success");
+    },
+    onError: (err: any, _payload, context) => {
+      queryClient.setQueryData(["games", "scheduled"], context?.previousGames);
+      queryClient.setQueryData(["guesses-me"], context?.previousGuesses);
       showToast(
         err.response?.data?.message ?? "Não foi possível salvar o palpite.",
         "error",
       );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["guesses-me"] });
     },
   });
 
@@ -150,7 +238,7 @@ export function GamesPage() {
       {error && (
         <Alert severity="error">
           {(error as any)?.response?.data?.message ??
-            "N?o foi poss?vel carregar jogos."}
+            "Não foi possível carregar jogos."}
         </Alert>
       )}
       {!isLoading && data?.games.length === 0 && (

@@ -30,9 +30,23 @@ import {
   statusLabel,
 } from "../services/gameHelpers";
 import { flagUrlForTeam } from "../services/teamFlags";
-import type { Guess } from "../services/types";
+import type { Game, Guess } from "../services/types";
 
 const expandedGuessesStorageKey = "bolao.guesses.expandedGroups";
+
+type GamesResponse = {
+  games: Game[];
+};
+
+type GuessesResponse = {
+  guesses: Guess[];
+};
+
+type GuessPayload = {
+  gameId: string;
+  guessHome: number;
+  guessAway: number;
+};
 
 export function GuessesPage() {
   const queryClient = useQueryClient();
@@ -95,22 +109,85 @@ export function GuessesPage() {
   }, [expandedGroups]);
 
   const updateGuess = useMutation({
-    mutationFn: ({
-      gameId,
-      guessHome,
-      guessAway,
-    }: {
-      gameId: string;
-      guessHome: number;
-      guessAway: number;
-    }) => api.post(`/games/${gameId}/guess`, { guessHome, guessAway }),
-    onSuccess: () => {
+    mutationFn: (payload: GuessPayload) =>
+      api.post<{ guess: Guess }>(`/games/${payload.gameId}/guess`, {
+        guessAway: payload.guessAway,
+        guessHome: payload.guessHome,
+      }),
+    onMutate: async (payload) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ["guesses-me"] }),
+        queryClient.cancelQueries({ queryKey: ["games"] }),
+      ]);
+
+      const previousGuesses = queryClient.getQueryData<GuessesResponse>([
+        "guesses-me",
+      ]);
+      const previousGames = queryClient.getQueryData<GamesResponse>([
+        "games",
+        "scheduled",
+      ]);
+
+      queryClient.setQueryData<GuessesResponse>(["guesses-me"], (current) =>
+        current
+          ? {
+              guesses: current.guesses.map((guess) =>
+                guess.gameId === payload.gameId
+                  ? {
+                      ...guess,
+                      guessAway: payload.guessAway,
+                      guessHome: payload.guessHome,
+                      points: null,
+                    }
+                  : guess,
+              ),
+            }
+          : current,
+      );
+      queryClient.setQueryData<GamesResponse>(
+        ["games", "scheduled"],
+        (current) =>
+          current
+            ? {
+                ...current,
+                games: current.games.map((game) =>
+                  game.id === payload.gameId && game.myGuess
+                    ? {
+                        ...game,
+                        myGuess: {
+                          ...game.myGuess,
+                          guessAway: payload.guessAway,
+                          guessHome: payload.guessHome,
+                          points: null,
+                        },
+                      }
+                    : game,
+                ),
+              }
+            : current,
+      );
       setGuessToEdit(null);
-      showToast("Palpite atualizado com sucesso!", "success");
-      queryClient.invalidateQueries({ queryKey: ["guesses-me"] });
-      queryClient.invalidateQueries({ queryKey: ["games"] });
+
+      return { previousGames, previousGuesses };
     },
-    onError: (err: any) => {
+    onSuccess: ({ data }, payload) => {
+      queryClient.setQueryData<GuessesResponse>(["guesses-me"], (current) =>
+        current
+          ? {
+              guesses: current.guesses.map((guess) =>
+                guess.gameId === payload.gameId
+                  ? { ...guess, ...data.guess }
+                  : guess,
+              ),
+            }
+          : current,
+      );
+      showToast("Palpite atualizado com sucesso!", "success");
+    },
+    onError: (err: any, _payload, context) => {
+      queryClient.setQueryData(["guesses-me"], context?.previousGuesses);
+      queryClient.setQueryData(["games", "scheduled"], context?.previousGames);
+      setGuessToEdit(guessToEdit);
       showToast(
         err.response?.data?.message ?? "Não foi possível atualizar o palpite.",
         "error",
@@ -121,7 +198,7 @@ export function GuessesPage() {
   return (
     <Stack gap={2}>
       <Stack
-        direction={{ xs: "column", sm: "row" }} 
+        direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
         gap={2}
       >

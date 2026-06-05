@@ -22,6 +22,10 @@ const roleLabel: Record<string, string> = {
   member: "Membro",
 };
 
+type GroupsMe = {
+  groups: Group[];
+};
+
 function apiMessage(error: unknown, fallback: string) {
   return (error as any)?.response?.data?.message ?? fallback;
 }
@@ -37,22 +41,37 @@ export function GroupsPage() {
     queryFn: async () => (await api.get("/groups/me")).data,
   });
   const create = useMutation({
-    mutationFn: () => api.post("/groups", { name: name.trim() }),
-    onSuccess: () => {
+    mutationFn: () =>
+      api.post<{ group: Group }>("/groups", { name: name.trim() }),
+    onSuccess: ({ data }) => {
       setName("");
       showToast("Grupo criado com sucesso!", "success");
-      queryClient.invalidateQueries({ queryKey: ["groups-me"] });
+      queryClient.setQueryData<GroupsMe>(["groups-me"], (current) => ({
+        groups: [
+          { ...data.group, memberRole: "owner" },
+          ...(current?.groups.filter((group) => group.id !== data.group.id) ??
+            []),
+        ],
+      }));
     },
     onError: (err) =>
       showToast(apiMessage(err, "Não foi possível criar grupo."), "error"),
   });
   const join = useMutation({
     mutationFn: () =>
-      api.post("/groups/join", { inviteCode: inviteCode.trim().toUpperCase() }),
-    onSuccess: () => {
+      api.post<{ group: Group }>("/groups/join", {
+        inviteCode: inviteCode.trim().toUpperCase(),
+      }),
+    onSuccess: ({ data }) => {
       setInviteCode("");
       showToast("Você entrou no grupo!", "success");
-      queryClient.invalidateQueries({ queryKey: ["groups-me"] });
+      queryClient.setQueryData<GroupsMe>(["groups-me"], (current) => ({
+        groups: [
+          { ...data.group, memberRole: "member" },
+          ...(current?.groups.filter((group) => group.id !== data.group.id) ??
+            []),
+        ],
+      }));
     },
     onError: (err) =>
       showToast(apiMessage(err, "Não foi possível entrar no grupo."), "error"),

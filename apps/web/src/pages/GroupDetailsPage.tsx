@@ -15,6 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
@@ -22,6 +23,15 @@ import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import type { Group, GroupMember, PrizeRule } from "../services/types";
+
+type GroupDetails = {
+  group: Group;
+  members: GroupMember[];
+};
+
+type GroupsMe = {
+  groups: Group[];
+};
 
 const roleLabel = { owner: "Dono", member: "Membro" };
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -42,6 +52,28 @@ function memberContributions(members: GroupMember[]) {
   );
 }
 
+function updateGroupInList(
+  queryClient: QueryClient,
+  groupId: string | undefined,
+  groupPatch: Partial<Group>,
+) {
+  if (!groupId) {
+    return;
+  }
+
+  queryClient.setQueryData<GroupsMe>(["groups-me"], (current) => {
+    if (!current) {
+      return current;
+    }
+
+    return {
+      groups: current.groups.map((group) =>
+        group.id === groupId ? { ...group, ...groupPatch } : group,
+      ),
+    };
+  });
+}
+
 export function GroupDetailsPage() {
   const { groupId } = useParams();
   const navigate = useNavigate();
@@ -54,11 +86,11 @@ export function GroupDetailsPage() {
   const [memberToRemove, setMemberToRemove] = useState<GroupMember | null>(
     null,
   );
-  const { data, error, isLoading } = useQuery<{
-    group: Group;
-    members: GroupMember[];
-  }>({
-    queryKey: ["group", groupId],
+  const groupQueryKey = ["group", groupId] as const;
+  const groupsMeQueryKey = ["groups-me"] as const;
+  const groupRankingQueryKey = ["group-ranking", groupId] as const;
+  const { data, error, isLoading } = useQuery<GroupDetails>({
+    queryKey: groupQueryKey,
     queryFn: async () => (await api.get(`/groups/${groupId}`)).data,
     enabled: Boolean(groupId),
   });
@@ -66,39 +98,119 @@ export function GroupDetailsPage() {
     mutationFn: (payload: {
       contributions: { userId: string; amount: number }[];
       rules: PrizeRule[];
-    }) => api.put(`/groups/${groupId}/symbolic-prize`, payload),
-    onSuccess: () => {
-      showToast("Premiação simbólica salva.", "success");
-      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["groups-me"] });
-      queryClient.invalidateQueries({ queryKey: ["group-ranking"] });
+    }) => api.put<GroupDetails>(`/groups/${groupId}/symbolic-prize`, payload),
+    onMutate: async (payload) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: groupQueryKey }),
+        queryClient.cancelQueries({ queryKey: groupsMeQueryKey }),
+      ]);
+
+      const previousGroup =
+        queryClient.getQueryData<GroupDetails>(groupQueryKey);
+      const previousGroups =
+        queryClient.getQueryData<GroupsMe>(groupsMeQueryKey);
+      const total = payload.contributions.reduce(
+        (sum, contribution) => sum + contribution.amount,
+        0,
+      );
+
+      queryClient.setQueryData<GroupDetails>(groupQueryKey, (current) => {
+        if (!current) {
+          return current;
+        }
+
+        return {
+          group: {
+            ...current.group,
+            prizeRules: payload.rules,
+            symbolicPrizeTotal: total,
+          },
+          members: current.members.map((member) => ({
+            ...member,
+            symbolicContribution:
+              payload.contributions.find(
+                (contribution) => contribution.userId === member.userId,
+              )?.amount ?? 0,
+          })),
+        };
+      });
+      updateGroupInList(queryClient, groupId, {
+        prizeRules: payload.rules,
+        symbolicPrizeTotal: total,
+      });
+
+      return { previousGroup, previousGroups };
     },
-    onError: (err) =>
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<GroupDetails>(groupQueryKey, data);
+      updateGroupInList(queryClient, groupId, data.group);
+      showToast("Premiação simbólica salva.", "success");
+      queryClient.invalidateQueries({ queryKey: groupRankingQueryKey });
+    },
+    onError: (err, _payload, context) => {
+      queryClient.setQueryData(groupQueryKey, context?.previousGroup);
+      queryClient.setQueryData(groupsMeQueryKey, context?.previousGroups);
       showToast(
         apiMessage(err, "Não foi possível salvar a premiação."),
         "error",
-      ),
+      );
+    },
   });
   const updateGroup = useMutation({
     mutationFn: () =>
-      api.put(`/groups/${groupId}`, {
+      api.put<{ group: Group }>(`/groups/${groupId}`, {
         description: data?.group.description,
         name: groupName.trim(),
       }),
-    onSuccess: () => {
+    onMutate: async () => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: groupQueryKey }),
+        queryClient.cancelQueries({ queryKey: groupsMeQueryKey }),
+      ]);
+
+      const previousGroup =
+        queryClient.getQueryData<GroupDetails>(groupQueryKey);
+      const previousGroups =
+        queryClient.getQueryData<GroupsMe>(groupsMeQueryKey);
+      const name = groupName.trim();
+
+      queryClient.setQueryData<GroupDetails>(groupQueryKey, (current) =>
+        current ? { ...current, group: { ...current.group, name } } : current,
+      );
+      updateGroupInList(queryClient, groupId, { name });
+      setEditGroupOpen(false);
+
+      return { previousGroup, previousGroups };
+    },
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<GroupDetails>(groupQueryKey, (current) =>
+        current
+          ? { ...current, group: { ...current.group, ...data.group } }
+          : current,
+      );
+      updateGroupInList(queryClient, groupId, data.group);
       setEditGroupOpen(false);
       showToast("Nome do grupo atualizado.", "success");
-      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["groups-me"] });
     },
-    onError: (err) =>
-      showToast(apiMessage(err, "Não foi possível editar o grupo."), "error"),
+    onError: (err, _variables, context) => {
+      queryClient.setQueryData(groupQueryKey, context?.previousGroup);
+      queryClient.setQueryData(groupsMeQueryKey, context?.previousGroups);
+      setEditGroupOpen(true);
+      showToast(apiMessage(err, "Não foi possível editar o grupo."), "error");
+    },
   });
   const deleteGroup = useMutation({
     mutationFn: () => api.delete(`/groups/${groupId}`),
     onSuccess: () => {
       showToast("Grupo deletado com sucesso.", "success");
-      queryClient.invalidateQueries({ queryKey: ["groups-me"] });
+      queryClient.removeQueries({ queryKey: groupQueryKey });
+      queryClient.setQueryData<GroupsMe>(groupsMeQueryKey, (current) =>
+        current
+          ? {
+              groups: current.groups.filter((group) => group.id !== groupId),
+            }
+          : current,
+      );
       navigate("/groups", { replace: true });
     },
     onError: (err) =>
@@ -107,17 +219,48 @@ export function GroupDetailsPage() {
   const removeMember = useMutation({
     mutationFn: (userId: string) =>
       api.delete(`/groups/${groupId}/members/${userId}`),
+    onMutate: async (userId) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: groupQueryKey }),
+        queryClient.cancelQueries({ queryKey: groupRankingQueryKey }),
+      ]);
+
+      const previousGroup =
+        queryClient.getQueryData<GroupDetails>(groupQueryKey);
+
+      queryClient.setQueryData<GroupDetails>(groupQueryKey, (current) => {
+        if (!current) {
+          return current;
+        }
+
+        const members = current.members.filter(
+          (member) => member.userId !== userId,
+        );
+        const total = members.reduce(
+          (sum, member) => sum + (member.symbolicContribution ?? 0),
+          0,
+        );
+
+        return {
+          group: { ...current.group, symbolicPrizeTotal: total },
+          members,
+        };
+      });
+
+      return { previousGroup };
+    },
     onSuccess: () => {
       setMemberToRemove(null);
       showToast("Participante removido do grupo.", "success");
-      queryClient.invalidateQueries({ queryKey: ["group", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["group-ranking"] });
+      queryClient.invalidateQueries({ queryKey: groupRankingQueryKey });
     },
-    onError: (err) =>
+    onError: (err, _userId, context) => {
+      queryClient.setQueryData(groupQueryKey, context?.previousGroup);
       showToast(
         apiMessage(err, "Não foi possível remover o participante."),
         "error",
-      ),
+      );
+    },
   });
 
   const isOwner = data?.group.ownerUserId === user?.id;
