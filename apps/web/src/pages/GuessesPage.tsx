@@ -4,6 +4,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Alert,
+  Box,
   Button,
   Chip,
   Dialog,
@@ -12,6 +13,7 @@ import {
   DialogTitle,
   Paper,
   Stack,
+  SvgIcon,
   Tab,
   Tabs,
   TextField,
@@ -27,7 +29,10 @@ import {
   isGuessLocked,
   statusLabel,
 } from "../services/gameHelpers";
+import { flagUrlForTeam } from "../services/teamFlags";
 import type { Guess } from "../services/types";
+
+const expandedGuessesStorageKey = "bolao.guesses.expandedGroups";
 
 export function GuessesPage() {
   const queryClient = useQueryClient();
@@ -47,6 +52,17 @@ export function GuessesPage() {
     () => groupGuessesForTab(selectedTab),
     [selectedTab],
   );
+  const groupLabels = useMemo(
+    () => groupedGuesses.map(([groupName]) => groupName),
+    [groupedGuesses],
+  );
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() =>
+    readExpandedGroups(),
+  );
+  const hasGuesses = groupedGuesses.length > 0;
+  const allExpanded =
+    hasGuesses &&
+    groupLabels.every((groupName) => expandedGroups.has(groupName));
 
   useEffect(() => {
     if (!stageTabs.length) {
@@ -57,6 +73,26 @@ export function GuessesPage() {
       setSelectedStage(stageTabs[0].id);
     }
   }, [selectedStage, stageTabs]);
+
+  useEffect(() => {
+    setExpandedGroups((currentGroups) => {
+      if (groupLabels.length === 0) {
+        return new Set();
+      }
+
+      const visibleGroups = new Set(groupLabels);
+      return new Set(
+        [...currentGroups].filter((groupName) => visibleGroups.has(groupName)),
+      );
+    });
+  }, [groupLabels]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      expandedGuessesStorageKey,
+      JSON.stringify([...expandedGroups]),
+    );
+  }, [expandedGroups]);
 
   const updateGuess = useMutation({
     mutationFn: ({
@@ -84,7 +120,32 @@ export function GuessesPage() {
 
   return (
     <Stack gap={2}>
-      <Typography variant="h4">Meus palpites</Typography>
+      <Stack
+        direction={{ xs: "column", sm: "row" }} 
+        justifyContent="space-between"
+        gap={2}
+      >
+        <Typography variant="h4">Meus palpites</Typography>
+
+        {hasGuesses && (
+          <Stack direction="row" gap={1} alignItems="center">
+            <Button
+              size="small"
+              variant={allExpanded ? "contained" : "outlined"}
+              onClick={() => setExpandedGroups(new Set(groupLabels))}
+            >
+              Expandir tudo
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setExpandedGroups(new Set())}
+            >
+              Colapsar tudo
+            </Button>
+          </Stack>
+        )}
+      </Stack>
 
       {isLoading && (
         <LoadingState
@@ -123,8 +184,25 @@ export function GuessesPage() {
       )}
 
       {groupedGuesses.map(([groupName, guesses]) => (
-        <Accordion key={groupName} defaultExpanded>
-          <AccordionSummary>
+        <Accordion
+          key={groupName}
+          expanded={expandedGroups.has(groupName)}
+          TransitionProps={{ timeout: 140, unmountOnExit: true }}
+          onChange={(_, expanded) => {
+            setExpandedGroups((currentGroups) => {
+              const nextGroups = new Set(currentGroups);
+
+              if (expanded) {
+                nextGroups.add(groupName);
+              } else {
+                nextGroups.delete(groupName);
+              }
+
+              return nextGroups;
+            });
+          }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" justifyContent="space-between" width="100%">
               <Typography variant="h6">{groupName}</Typography>
               <Typography color="text.secondary">
@@ -164,6 +242,14 @@ export function GuessesPage() {
   );
 }
 
+function ExpandMoreIcon() {
+  return (
+    <SvgIcon fontSize="medium" viewBox="0 0 24 24">
+      <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+    </SvgIcon>
+  );
+}
+
 function GuessCard({ guess, onEdit }: { guess: Guess; onEdit: () => void }) {
   const locked = guess.game ? isGuessLocked(guess.game) : true;
 
@@ -175,10 +261,13 @@ function GuessCard({ guess, onEdit }: { guess: Guess; onEdit: () => void }) {
           justifyContent="space-between"
           gap={2}
         >
-          <Typography variant="h6">
-            {guess.game?.teamHome} {guess.guessHome} x {guess.guessAway}{" "}
-            {guess.game?.teamAway}
-          </Typography>
+          <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+            <TeamWithFlag name={guess.game?.teamHome ?? "Casa"} />
+            <Typography fontWeight={900}>
+              {guess.guessHome} x {guess.guessAway}
+            </Typography>
+            <TeamWithFlag name={guess.game?.teamAway ?? "Fora"} />
+          </Stack>
           <Stack direction="row" gap={1} alignItems="center">
             <Chip
               label={guess.points == null ? "Pendente" : `${guess.points} pts`}
@@ -197,13 +286,36 @@ function GuessCard({ guess, onEdit }: { guess: Guess; onEdit: () => void }) {
 
         {guess.game && (
           <Typography color="text.secondary">
-            {statusLabel[guess.game.status]} ?{" "}
+            {statusLabel[guess.game.status]} ·{" "}
             {formatGameDate(guess.game.startsAt)}
-            {locked ? "edição bloqueada" : ""}
+            {locked ? " · edição bloqueada" : ""}
           </Typography>
         )}
       </Stack>
     </Paper>
+  );
+}
+
+function TeamWithFlag({ name }: { name: string }) {
+  const flagUrl = flagUrlForTeam(name);
+
+  return (
+    <Stack direction="row" alignItems="center" gap={0.75}>
+      {flagUrl && (
+        <Box
+          alt={`Bandeira de ${name}`}
+          component="img"
+          src={flagUrl}
+          sx={{
+            borderRadius: 0.5,
+            height: 16,
+            objectFit: "cover",
+            width: 24,
+          }}
+        />
+      )}
+      <Typography fontWeight={800}>{name}</Typography>
+    </Stack>
   );
 }
 
@@ -399,4 +511,26 @@ function compareGuesses(first: Guess, second: Guess) {
     Date.parse(first.game?.startsAt ?? "") -
     Date.parse(second.game?.startsAt ?? "")
   );
+}
+
+function readExpandedGroups() {
+  try {
+    const storedGroups = localStorage.getItem(expandedGuessesStorageKey);
+
+    if (!storedGroups) {
+      return new Set<string>();
+    }
+
+    const parsedGroups = JSON.parse(storedGroups);
+
+    if (!Array.isArray(parsedGroups)) {
+      return new Set<string>();
+    }
+
+    return new Set(
+      parsedGroups.filter((groupName) => typeof groupName === "string"),
+    );
+  } catch {
+    return new Set<string>();
+  }
 }
