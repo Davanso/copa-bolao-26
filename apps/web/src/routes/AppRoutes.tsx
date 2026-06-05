@@ -1,4 +1,4 @@
-﻿import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { AppLayout } from "../components/AppLayout";
 import { LandingPage } from "../pages/LandingPage";
@@ -9,6 +9,8 @@ import { GuessesPage } from "../pages/GuessesPage";
 import { RankingPage } from "../pages/RankingPage";
 import { GroupsPage } from "../pages/GroupsPage";
 import { GroupDetailsPage } from "../pages/GroupDetailsPage";
+
+const lastRouteStorageKey = "bolao.lastRoute";
 
 export function AppRoutes() {
   const { user } = useAuth();
@@ -26,7 +28,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="/" element={<GamesPage />} />
+        <Route path="/" element={<HomeRoute />} />
         <Route path="/live" element={<LivePage />} />
         <Route path="/guesses" element={<GuessesPage />} />
         <Route path="/ranking" element={<RankingPage />} />
@@ -36,4 +38,20 @@ export function AppRoutes() {
       </Route>
     </Routes>
   );
+}
+
+function HomeRoute() {
+  const location = useLocation();
+  const lastRoute = localStorage.getItem(lastRouteStorageKey);
+
+  if (
+    !location.state?.skipRouteRestore &&
+    lastRoute &&
+    lastRoute !== "/" &&
+    lastRoute.startsWith("/")
+  ) {
+    return <Navigate to={lastRoute} replace />;
+  }
+
+  return <GamesPage />;
 }

@@ -18,7 +18,7 @@ export const resultSchema = z.object({
 
 export const groupSchema = z.object({
   name: z.string().min(3).max(48),
-  description: z.string().max(160).optional(),
+  description: z.string().max(160).nullish(),
 });
 
 export const joinGroupSchema = z.object({

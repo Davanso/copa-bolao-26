@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Avatar,
   BottomNavigation,
@@ -6,6 +6,10 @@ import {
   Box,
   Button,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Menu,
   MenuItem,
@@ -26,6 +30,8 @@ const nav = [
   { label: "Ranking", path: "/ranking", icon: "🏆" },
   { label: "Grupos", path: "/groups", icon: "👥" },
 ];
+const lastRouteStorageKey = "bolao.lastRoute";
+const onboardingStoragePrefix = "bolao.onboarding.seen";
 
 const NavIcon = ({ icon }: { icon: string }) => (
   <Box component="span" aria-hidden="true" sx={{ fontSize: 20, lineHeight: 1 }}>
@@ -40,12 +46,56 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const { showToast } = useToast();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
 
   function handleLogout() {
     logout();
     setAnchorEl(null);
     showToast("Você saiu da sua conta.", "info");
     navigate("/");
+  }
+
+  useEffect(() => {
+    if (location.pathname !== "/login") {
+      localStorage.setItem(
+        lastRouteStorageKey,
+        `${location.pathname}${location.search}`,
+      );
+    }
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const key = `${onboardingStoragePrefix}.${user.id}`;
+
+    if (!localStorage.getItem(key)) {
+      setWelcomeOpen(true);
+    }
+  }, [user]);
+
+  function activeNavPath() {
+    const activeItem = nav.find((item) =>
+      item.path === "/"
+        ? location.pathname === "/"
+        : location.pathname.startsWith(item.path),
+    );
+
+    return activeItem?.path ?? "/";
+  }
+
+  function goToNav(path: string) {
+    navigate(path, { state: { skipRouteRestore: true } });
+  }
+
+  function closeWelcome() {
+    if (user) {
+      localStorage.setItem(`${onboardingStoragePrefix}.${user.id}`, "true");
+    }
+
+    setWelcomeOpen(false);
   }
 
   return (
@@ -76,9 +126,6 @@ export function AppLayout() {
               />
               <Box>
                 <Typography variant="h5">Copa dos Palpites</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Brasil no peito, resenha no ranking
-                </Typography>
               </Box>
             </Stack>
 
@@ -88,9 +135,9 @@ export function AppLayout() {
                   <Button
                     key={item.path}
                     startIcon={<NavIcon icon={item.icon} />}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => goToNav(item.path)}
                     color={
-                      location.pathname === item.path ? "secondary" : "inherit"
+                      activeNavPath() === item.path ? "secondary" : "inherit"
                     }
                   >
                     {item.label}
@@ -131,16 +178,45 @@ export function AppLayout() {
         <Outlet />
       </Container>
 
+      <Dialog open={welcomeOpen} onClose={closeWelcome} fullWidth>
+        <DialogTitle>Bem-vindo ao Copa dos Palpites</DialogTitle>
+        <DialogContent>
+          <Stack gap={2} sx={{ pt: 1 }}>
+            <Typography color="text.secondary">
+              Um guia rápido para você começar sem tropeçar na bola.
+            </Typography>
+            <WelcomeStep
+              number="1"
+              title="Crie ou entre em um grupo"
+              description="Use a aba Grupos para montar sua turma ou entrar por código."
+            />
+            <WelcomeStep
+              number="2"
+              title="Faça seus palpites"
+              description="Na aba Jogos, escolha os placares antes do jogo começar."
+            />
+            <WelcomeStep
+              number="3"
+              title="Acompanhe o ranking"
+              description="Veja pontuação, cravadas e premiação simbólica do grupo."
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button variant="contained" onClick={closeWelcome}>
+            Começar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {!desktop && (
         <Paper
           sx={{ position: "fixed", left: 8, right: 8, bottom: 8, zIndex: 5 }}
         >
           <BottomNavigation
             showLabels
-            value={
-              nav.find((item) => item.path === location.pathname)?.path ?? "/"
-            }
-            onChange={(_, value) => navigate(value)}
+            value={activeNavPath()}
+            onChange={(_, value) => goToNav(value)}
           >
             {nav.map((item) => (
               <BottomNavigationAction
@@ -154,5 +230,27 @@ export function AppLayout() {
         </Paper>
       )}
     </Box>
+  );
+}
+
+function WelcomeStep({
+  description,
+  number,
+  title,
+}: {
+  description: string;
+  number: string;
+  title: string;
+}) {
+  return (
+    <Stack direction="row" gap={1.5}>
+      <Avatar sx={{ bgcolor: "primary.main", height: 34, width: 34 }}>
+        {number}
+      </Avatar>
+      <Box>
+        <Typography fontWeight={800}>{title}</Typography>
+        <Typography color="text.secondary">{description}</Typography>
+      </Box>
+    </Stack>
   );
 }

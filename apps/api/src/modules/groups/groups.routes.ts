@@ -87,7 +87,7 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
     String(req.params.groupId),
     req.user!.id,
   );
-  const members = await prisma.groupMember.findMany({
+  const rawMembers = await prisma.groupMember.findMany({
     where: { groupId: group.id },
     include: {
       user: {
@@ -96,6 +96,18 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
     },
     orderBy: { joinedAt: "asc" },
   });
+  const guessesByUser = await prisma.guess.groupBy({
+    by: ["userId"],
+    where: { userId: { in: rawMembers.map((member) => member.userId) } },
+    _count: { _all: true },
+  });
+  const guessesCountByUser = new Map(
+    guessesByUser.map((item) => [item.userId, item._count._all]),
+  );
+  const members = rawMembers.map((member) => ({
+    ...member,
+    guessesCount: guessesCountByUser.get(member.userId) ?? 0,
+  }));
 
   res.json({ group, members });
 });
@@ -195,7 +207,7 @@ groupsRouter.put("/:groupId/symbolic-prize", requireAuth, async (req, res) => {
       include: { prizeRules: { orderBy: { position: "asc" } } },
     });
   });
-  const updatedMembers = await prisma.groupMember.findMany({
+  const rawUpdatedMembers = await prisma.groupMember.findMany({
     where: { groupId },
     include: {
       user: {
@@ -204,6 +216,20 @@ groupsRouter.put("/:groupId/symbolic-prize", requireAuth, async (req, res) => {
     },
     orderBy: { joinedAt: "asc" },
   });
+  const guessesByUser = await prisma.guess.groupBy({
+    by: ["userId"],
+    where: {
+      userId: { in: rawUpdatedMembers.map((member) => member.userId) },
+    },
+    _count: { _all: true },
+  });
+  const guessesCountByUser = new Map(
+    guessesByUser.map((item) => [item.userId, item._count._all]),
+  );
+  const updatedMembers = rawUpdatedMembers.map((member) => ({
+    ...member,
+    guessesCount: guessesCountByUser.get(member.userId) ?? 0,
+  }));
 
   res.json({ group: updatedGroup, members: updatedMembers });
 });

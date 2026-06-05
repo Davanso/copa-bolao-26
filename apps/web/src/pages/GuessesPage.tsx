@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Button,
   Chip,
@@ -9,6 +12,8 @@ import {
   DialogTitle,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -28,10 +33,31 @@ export function GuessesPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [guessToEdit, setGuessToEdit] = useState<Guess | null>(null);
+  const [selectedStage, setSelectedStage] = useState("group");
   const { data, error, isLoading } = useQuery<{ guesses: Guess[] }>({
     queryKey: ["guesses-me"],
     queryFn: async () => (await api.get("/guesses/me")).data,
   });
+  const stageTabs = useMemo(
+    () => buildGuessTabs(data?.guesses ?? []),
+    [data?.guesses],
+  );
+  const selectedTab = stageTabs.find((tab) => tab.id === selectedStage);
+  const groupedGuesses = useMemo(
+    () => groupGuessesForTab(selectedTab),
+    [selectedTab],
+  );
+
+  useEffect(() => {
+    if (!stageTabs.length) {
+      return;
+    }
+
+    if (!stageTabs.some((tab) => tab.id === selectedStage)) {
+      setSelectedStage(stageTabs[0].id);
+    }
+  }, [selectedStage, stageTabs]);
+
   const updateGuess = useMutation({
     mutationFn: ({
       gameId,
@@ -77,50 +103,48 @@ export function GuessesPage() {
         />
       )}
 
-      {data?.guesses.map((guess) => {
-        const locked = guess.game ? isGuessLocked(guess.game) : true;
+      {stageTabs.length > 0 && (
+        <Paper sx={{ p: 1 }}>
+          <Tabs
+            value={selectedStage}
+            variant="scrollable"
+            scrollButtons="auto"
+            onChange={(_, value: string) => setSelectedStage(value)}
+          >
+            {stageTabs.map((tab) => (
+              <Tab
+                key={tab.id}
+                label={`${tab.label} (${tab.guesses.length})`}
+                value={tab.id}
+              />
+            ))}
+          </Tabs>
+        </Paper>
+      )}
 
-        return (
-          <Paper key={guess.id} sx={{ p: 2 }}>
-            <Stack gap={1}>
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                justifyContent="space-between"
-                gap={2}
-              >
-                <Typography variant="h6">
-                  {guess.game?.teamHome} {guess.guessHome} x {guess.guessAway}{" "}
-                  {guess.game?.teamAway}
-                </Typography>
-                <Stack direction="row" gap={1} alignItems="center">
-                  <Chip
-                    label={
-                      guess.points == null ? "Pendente" : `${guess.points} pts`
-                    }
-                    color={guess.points === 3 ? "primary" : "default"}
-                  />
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    disabled={locked}
-                    onClick={() => setGuessToEdit(guess)}
-                  >
-                    Editar
-                  </Button>
-                </Stack>
-              </Stack>
-
-              {guess.game && (
-                <Typography color="text.secondary">
-                  {statusLabel[guess.game.status]} ·{" "}
-                  {formatGameDate(guess.game.startsAt)}
-                  {locked ? " · edição bloqueada" : ""}
-                </Typography>
-              )}
+      {groupedGuesses.map(([groupName, guesses]) => (
+        <Accordion key={groupName} defaultExpanded>
+          <AccordionSummary>
+            <Stack direction="row" justifyContent="space-between" width="100%">
+              <Typography variant="h6">{groupName}</Typography>
+              <Typography color="text.secondary">
+                {guesses.length} palpite{guesses.length === 1 ? "" : "s"}
+              </Typography>
             </Stack>
-          </Paper>
-        );
-      })}
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack gap={1.5}>
+              {guesses.map((guess) => (
+                <GuessCard
+                  guess={guess}
+                  key={guess.id}
+                  onEdit={() => setGuessToEdit(guess)}
+                />
+              ))}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+      ))}
 
       <EditGuessDialog
         guess={guessToEdit}
@@ -137,6 +161,49 @@ export function GuessesPage() {
         }}
       />
     </Stack>
+  );
+}
+
+function GuessCard({ guess, onEdit }: { guess: Guess; onEdit: () => void }) {
+  const locked = guess.game ? isGuessLocked(guess.game) : true;
+
+  return (
+    <Paper sx={{ p: 2 }}>
+      <Stack gap={1}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          justifyContent="space-between"
+          gap={2}
+        >
+          <Typography variant="h6">
+            {guess.game?.teamHome} {guess.guessHome} x {guess.guessAway}{" "}
+            {guess.game?.teamAway}
+          </Typography>
+          <Stack direction="row" gap={1} alignItems="center">
+            <Chip
+              label={guess.points == null ? "Pendente" : `${guess.points} pts`}
+              color={guess.points === 3 ? "primary" : "default"}
+            />
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={locked}
+              onClick={onEdit}
+            >
+              Editar
+            </Button>
+          </Stack>
+        </Stack>
+
+        {guess.game && (
+          <Typography color="text.secondary">
+            {statusLabel[guess.game.status]} ?{" "}
+            {formatGameDate(guess.game.startsAt)}
+            {locked ? "edição bloqueada" : ""}
+          </Typography>
+        )}
+      </Stack>
+    </Paper>
   );
 }
 
@@ -251,4 +318,85 @@ function inputToScore(value: string) {
 
 function normalizeScoreInput(value: string) {
   return value.replace(/\D/g, "").slice(0, 2);
+}
+
+type GuessTab = {
+  id: string;
+  label: string;
+  guesses: Guess[];
+};
+
+const guessTabsConfig = [
+  {
+    id: "group",
+    label: "Fase de grupos",
+    match: (guess: Guess) => guess.game?.stage === "Fase de grupos",
+  },
+  {
+    id: "r32",
+    label: "16 avos",
+    match: (guess: Guess) => guess.game?.stage === "16 avos de final",
+  },
+  {
+    id: "r16",
+    label: "Oitavas",
+    match: (guess: Guess) => guess.game?.stage === "Oitavas de final",
+  },
+  {
+    id: "qf",
+    label: "Quartas",
+    match: (guess: Guess) => guess.game?.stage === "Quartas de final",
+  },
+  {
+    id: "sf",
+    label: "Semifinal",
+    match: (guess: Guess) => guess.game?.stage === "Semifinal",
+  },
+  {
+    id: "final",
+    label: "Final",
+    match: (guess: Guess) => guess.game?.stage === "Final",
+  },
+  {
+    id: "third",
+    label: "3º lugar",
+    match: (guess: Guess) => guess.game?.stage === "Disputa de terceiro lugar",
+  },
+];
+
+function buildGuessTabs(guesses: Guess[]): GuessTab[] {
+  return guessTabsConfig
+    .map((stage) => ({
+      id: stage.id,
+      label: stage.label,
+      guesses: guesses.filter(stage.match).sort(compareGuesses),
+    }))
+    .filter((stage) => stage.guesses.length > 0);
+}
+
+function groupGuessesForTab(tab?: GuessTab) {
+  if (!tab) {
+    return [] as [string, Guess[]][];
+  }
+
+  const grouped = new Map<string, Guess[]>();
+
+  for (const guess of tab.guesses) {
+    const label =
+      tab.id === "group" && guess.game?.groupName
+        ? `Grupo ${guess.game.groupName}`
+        : (guess.game?.stage ?? "Sem jogo");
+    grouped.set(label, [...(grouped.get(label) ?? []), guess]);
+  }
+
+  return [...grouped.entries()].sort(([first], [second]) =>
+    first.localeCompare(second, "pt-BR", { numeric: true }),
+  );
+}
+
+function compareGuesses(first: Guess, second: Guess) {
+  return (
+    Date.parse(first.game?.startsAt ?? "") -
+    Date.parse(second.game?.startsAt ?? "")
+  );
 }

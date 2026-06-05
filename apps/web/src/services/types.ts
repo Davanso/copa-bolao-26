@@ -55,6 +55,7 @@ export type GroupMember = {
   userId: string;
   role: "owner" | "member";
   symbolicContribution: number;
+  guessesCount: number;
   joinedAt: string;
   user: User;
 };

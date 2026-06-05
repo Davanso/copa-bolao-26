@@ -376,7 +376,7 @@ const stageTabsConfig = [
   },
   {
     id: "third",
-    label: "3 lugar",
+    label: "3º lugar",
     match: (game: Game) => game.stage === "Disputa de terceiro lugar",
   },
 ];

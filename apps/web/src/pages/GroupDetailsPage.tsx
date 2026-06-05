@@ -211,6 +211,11 @@ export function GroupDetailsPage() {
                       <Typography color="text.secondary">
                         Participante
                       </Typography>
+                      <Typography color="text.secondary" variant="body2">
+                        {member.guessesCount} palpite
+                        {member.guessesCount === 1 ? "" : "s"} feito
+                        {member.guessesCount === 1 ? "" : "s"}
+                      </Typography>
                     </Stack>
                     <Stack direction="row" alignItems="center" gap={1}>
                       <Chip label={roleLabel[member.role]} />
@@ -434,8 +439,9 @@ function PrizeCard({
         <Stack>
           <Typography variant="h5">Premiação simbólica</Typography>
           <Typography color="text.secondary">
-            Preencha quanto cada participante combinou simbolicamente. O app
-            soma tudo e calcula a divisão pelos percentuais.
+            {isOwner
+              ? "Preencha quanto cada participante combinou. O app soma tudo e calcula a divisão."
+              : "Resumo do valor total combinado e como ele será dividido."}
           </Typography>
         </Stack>
 
@@ -460,58 +466,77 @@ function PrizeCard({
           </Stack>
         </Paper>
 
-        <Stack gap={1}>
-          <Typography variant="h6">Valor por participante</Typography>
-          <Grid container spacing={1.5}>
-            {members.map((member) => (
-              <Grid item xs={12} md={6} key={member.id}>
-                <TextField
-                  fullWidth
-                  label={member.user.username}
-                  placeholder="0"
-                  value={contributions[member.userId] ?? ""}
-                  disabled={!isOwner || saving}
-                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-                  helperText={roleLabel[member.role]}
-                  onChange={(event) =>
-                    updateContribution(
-                      member.userId,
-                      event.target.value.replace(/\D/g, ""),
-                    )
-                  }
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </Stack>
+        {isOwner && (
+          <Stack gap={1}>
+            <Typography variant="h6">Valor por participante</Typography>
+            <Grid container spacing={1.5}>
+              {members.map((member) => (
+                <Grid item xs={12} md={6} key={member.id}>
+                  <TextField
+                    fullWidth
+                    label={member.user.username}
+                    placeholder="0"
+                    value={contributions[member.userId] ?? ""}
+                    disabled={saving}
+                    inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                    helperText={roleLabel[member.role]}
+                    onChange={(event) =>
+                      updateContribution(
+                        member.userId,
+                        event.target.value.replace(/\D/g, ""),
+                      )
+                    }
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </Stack>
+        )}
 
         <Grid container spacing={1.5}>
           {rules.map((rule, index) => (
             <Grid item xs={12} md={4} key={index}>
               <Paper sx={{ p: 1.5 }}>
                 <Stack gap={1}>
-                  <TextField
-                    label="Posição"
-                    type="number"
-                    value={rule.position}
-                    disabled={!isOwner || saving}
-                    onChange={(event) =>
-                      updateRule(index, "position", Number(event.target.value))
-                    }
-                  />
-                  <TextField
-                    label="Percentual"
-                    type="number"
-                    value={rule.percentage}
-                    disabled={!isOwner || saving}
-                    onChange={(event) =>
-                      updateRule(
-                        index,
-                        "percentage",
-                        Number(event.target.value),
-                      )
-                    }
-                  />
+                  {isOwner ? (
+                    <>
+                      <TextField
+                        label="Posição"
+                        type="number"
+                        value={rule.position}
+                        disabled={saving}
+                        onChange={(event) =>
+                          updateRule(
+                            index,
+                            "position",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                      <TextField
+                        label="Percentual"
+                        type="number"
+                        value={rule.percentage}
+                        disabled={saving}
+                        onChange={(event) =>
+                          updateRule(
+                            index,
+                            "percentage",
+                            Number(event.target.value),
+                          )
+                        }
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Typography variant="h6">
+                        {rule.position}º lugar
+                      </Typography>
+                      <Typography color="text.secondary">
+                        {rule.percentage}% do total
+                      </Typography>
+                    </>
+                  )}
                   <Typography color="text.secondary">
                     {currency.format((total * rule.percentage) / 100)}
                   </Typography>
@@ -521,15 +546,19 @@ function PrizeCard({
           ))}
         </Grid>
 
-        <Typography
-          color={
-            percentageTotal === 100 || total === 0 ? "text.secondary" : "error"
-          }
-        >
-          Soma dos percentuais: {percentageTotal}%
-        </Typography>
+        {isOwner && (
+          <Typography
+            color={
+              percentageTotal === 100 || total === 0
+                ? "text.secondary"
+                : "error"
+            }
+          >
+            Soma dos percentuais: {percentageTotal}%
+          </Typography>
+        )}
 
-        {isOwner ? (
+        {isOwner && (
           <Button
             variant="contained"
             disabled={saving || (total > 0 && percentageTotal !== 100)}
@@ -542,10 +571,6 @@ function PrizeCard({
           >
             Salvar premiação simbólica
           </Button>
-        ) : (
-          <Alert severity="info">
-            Apenas o dono do grupo pode editar a premiação simbólica.
-          </Alert>
         )}
       </Stack>
     </Paper>
