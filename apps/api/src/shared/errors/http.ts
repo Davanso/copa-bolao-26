@@ -7,7 +7,7 @@ export class HttpError extends Error {
     super(message);
   }
 }
-export const notFound = (message = "Nao encontrado") =>
+export const notFound = (message = "Não encontrado") =>
   new HttpError(404, message);
 export function errorHandler(
   error: unknown,

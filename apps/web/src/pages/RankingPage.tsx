@@ -86,13 +86,36 @@ export function RankingPage() {
         </Typography>
       </Stack>
 
-      <Paper sx={{ p: 2 }}>
-        <Stack gap={0.75}>
-          <Typography variant="h6">Como funciona a pontuação?</Typography>
-          <Typography color="text.secondary">
-            Placar exato vale 3 pontos. Acertar o vencedor ou empate vale 1
-            ponto. Errar o resultado vale 0 ponto.
-          </Typography>
+      <Paper
+        sx={{
+          background:
+            "linear-gradient(135deg, rgba(0,156,59,.12), rgba(255,204,41,.14))",
+          border: "1px solid rgba(0, 156, 59, .16)",
+          p: 2,
+        }}
+      >
+        <Stack gap={1}>
+          <Typography variant="h6">Regra de pontua??o</Typography>
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={4}>
+              <Chip color="primary" label="3 pontos" />
+              <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                Placar exato da partida.
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Chip color="secondary" label="1 ponto" />
+              <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                Acertou o vencedor ou empate, mas errou o placar.
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Chip label="0 ponto" />
+              <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                Errou o resultado da partida.
+              </Typography>
+            </Grid>
+          </Grid>
         </Stack>
       </Paper>
 

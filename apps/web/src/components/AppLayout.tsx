@@ -31,13 +31,186 @@ const nav = [
   { label: "Grupos", path: "/groups", icon: "👥" },
 ];
 const lastRouteStorageKey = "bolao.lastRoute";
-const onboardingStoragePrefix = "bolao.onboarding.seen";
+const onboardingStoragePrefix = "bolao.onboarding.page.seen";
+
+type OnboardingContent = {
+  id: string;
+  title: string;
+  description: string;
+  action: string;
+  steps: {
+    title: string;
+    description: string;
+  }[];
+};
+
+const onboardingByPage: OnboardingContent[] = [
+  {
+    id: "games",
+    title: "Bem-vindo aos jogos",
+    description:
+      "Aqui você escolhe a fase, abre cada grupo e salva seus palpites antes da bola rolar.",
+    action: "Entendi",
+    steps: [
+      {
+        title: "Abra um grupo",
+        description: "Use as abas e acordeões para encontrar a partida certa.",
+      },
+      {
+        title: "Digite o placar",
+        description: "Você pode editar enquanto o jogo ainda está agendado.",
+      },
+      {
+        title: "Respeite o bloqueio",
+        description: "Quando o jogo começa, o backend bloqueia alterações.",
+      },
+    ],
+  },
+  {
+    id: "live",
+    title: "Jogos ao vivo",
+    description:
+      "Quando a API informar partidas em andamento, elas aparecem aqui com atualização automática.",
+    action: "Ver ao vivo",
+    steps: [
+      {
+        title: "Atualização automática",
+        description: "A tela consulta a API a cada 30 segundos.",
+      },
+      {
+        title: "Palpites bloqueados",
+        description: "Jogo em andamento não permite novo palpite ou edição.",
+      },
+      {
+        title: "Sem jogo agora",
+        description: "Se nada estiver rolando, mostramos uma mensagem clara.",
+      },
+    ],
+  },
+  {
+    id: "guesses",
+    title: "Meus palpites",
+    description:
+      "Esta tela junta todos os placares que você já salvou para revisar e editar com facilidade.",
+    action: "Revisar palpites",
+    steps: [
+      {
+        title: "Use as abas",
+        description: "Os palpites ficam separados por fase da competição.",
+      },
+      {
+        title: "Edite rápido",
+        description:
+          "Clique em editar enquanto a partida ainda permite ajuste.",
+      },
+      {
+        title: "Veja pontos",
+        description: "Depois do jogo, a pontuação aparece no card.",
+      },
+    ],
+  },
+  {
+    id: "ranking",
+    title: "Ranking do grupo",
+    description:
+      "Escolha um grupo para ver pódio, classificação e premiação simbólica.",
+    action: "Ver ranking",
+    steps: [
+      {
+        title: "Selecione o grupo",
+        description: "Cada grupo tem um ranking separado.",
+      },
+      {
+        title: "Compare pontuações",
+        description: "Acompanhe pontos, cravadas e palpites pontuados.",
+      },
+      {
+        title: "Veja prêmios",
+        description: "Se houver valor simbólico, ele aparece por posição.",
+      },
+    ],
+  },
+  {
+    id: "groups",
+    title: "Grupos do bolão",
+    description:
+      "Crie sua turma, copie o código de convite ou entre em um grupo existente.",
+    action: "Gerenciar grupos",
+    steps: [
+      {
+        title: "Crie um grupo",
+        description: "Quem cria vira dono e pode administrar detalhes.",
+      },
+      {
+        title: "Divulgue o código",
+        description: "Copie o código e envie para seus amigos entrarem.",
+      },
+      {
+        title: "Configure valores",
+        description: "Nos detalhes, o dono ajusta a premiação simbólica.",
+      },
+    ],
+  },
+  {
+    id: "group-details",
+    title: "Detalhes do grupo",
+    description:
+      "Aqui ficam convite, participantes, palpites feitos e premiação simbólica.",
+    action: "Ver detalhes",
+    steps: [
+      {
+        title: "Compartilhe o convite",
+        description: "Use o código do grupo para chamar participantes.",
+      },
+      {
+        title: "Acompanhe membros",
+        description: "Veja quem entrou e quantos palpites cada pessoa fez.",
+      },
+      {
+        title: "Premiação simbólica",
+        description: "O app só organiza valores combinados fora dele.",
+      },
+    ],
+  },
+];
 
 const NavIcon = ({ icon }: { icon: string }) => (
   <Box component="span" aria-hidden="true" sx={{ fontSize: 20, lineHeight: 1 }}>
     {icon}
   </Box>
 );
+
+function onboardingForPath(pathname: string) {
+  if (pathname === "/") {
+    return onboardingByPage.find((item) => item.id === "games") ?? null;
+  }
+
+  if (/^\/groups\/[^/]+/.test(pathname)) {
+    return onboardingByPage.find((item) => item.id === "group-details") ?? null;
+  }
+
+  if (pathname.startsWith("/groups")) {
+    return onboardingByPage.find((item) => item.id === "groups") ?? null;
+  }
+
+  if (pathname.startsWith("/ranking")) {
+    return onboardingByPage.find((item) => item.id === "ranking") ?? null;
+  }
+
+  if (pathname.startsWith("/guesses")) {
+    return onboardingByPage.find((item) => item.id === "guesses") ?? null;
+  }
+
+  if (pathname.startsWith("/live")) {
+    return onboardingByPage.find((item) => item.id === "live") ?? null;
+  }
+
+  return null;
+}
+
+function onboardingKey(userId: string, pageId: string) {
+  return `${onboardingStoragePrefix}.${userId}.${pageId}`;
+}
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -46,7 +219,8 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const { showToast } = useToast();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [openOnboarding, setOpenOnboarding] =
+    useState<OnboardingContent | null>(null);
 
   function handleLogout() {
     logout();
@@ -66,15 +240,25 @@ export function AppLayout() {
 
   useEffect(() => {
     if (!user) {
+      setOpenOnboarding(null);
       return;
     }
 
-    const key = `${onboardingStoragePrefix}.${user.id}`;
+    const pageOnboarding = onboardingForPath(location.pathname);
+
+    if (!pageOnboarding) {
+      setOpenOnboarding(null);
+      return;
+    }
+
+    const key = onboardingKey(user.id, pageOnboarding.id);
 
     if (!localStorage.getItem(key)) {
-      setWelcomeOpen(true);
+      setOpenOnboarding(pageOnboarding);
+    } else {
+      setOpenOnboarding(null);
     }
-  }, [user]);
+  }, [location.pathname, user]);
 
   function activeNavPath() {
     const activeItem = nav.find((item) =>
@@ -91,11 +275,11 @@ export function AppLayout() {
   }
 
   function closeWelcome() {
-    if (user) {
-      localStorage.setItem(`${onboardingStoragePrefix}.${user.id}`, "true");
+    if (user && openOnboarding) {
+      localStorage.setItem(onboardingKey(user.id, openOnboarding.id), "true");
     }
 
-    setWelcomeOpen(false);
+    setOpenOnboarding(null);
   }
 
   return (
@@ -178,33 +362,26 @@ export function AppLayout() {
         <Outlet />
       </Container>
 
-      <Dialog open={welcomeOpen} onClose={closeWelcome} fullWidth>
-        <DialogTitle>Bem-vindo ao Copa dos Palpites</DialogTitle>
+      <Dialog open={Boolean(openOnboarding)} onClose={closeWelcome} fullWidth>
+        <DialogTitle>{openOnboarding?.title}</DialogTitle>
         <DialogContent>
           <Stack gap={2} sx={{ pt: 1 }}>
             <Typography color="text.secondary">
-              Um guia rápido para você começar sem tropeçar na bola.
+              {openOnboarding?.description}
             </Typography>
-            <WelcomeStep
-              number="1"
-              title="Crie ou entre em um grupo"
-              description="Use a aba Grupos para montar sua turma ou entrar por código."
-            />
-            <WelcomeStep
-              number="2"
-              title="Faça seus palpites"
-              description="Na aba Jogos, escolha os placares antes do jogo começar."
-            />
-            <WelcomeStep
-              number="3"
-              title="Acompanhe o ranking"
-              description="Veja pontuação, cravadas e premiação simbólica do grupo."
-            />
+            {openOnboarding?.steps.map((step, index) => (
+              <WelcomeStep
+                description={step.description}
+                key={step.title}
+                number={`${index + 1}`}
+                title={step.title}
+              />
+            ))}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2.5, pt: 1 }}>
           <Button variant="contained" onClick={closeWelcome}>
-            Começar
+            {openOnboarding?.action ?? "Entendi"}
           </Button>
         </DialogActions>
       </Dialog>

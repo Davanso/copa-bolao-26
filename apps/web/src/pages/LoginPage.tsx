@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Container,
+  LinearProgress,
   Paper,
   Stack,
   TextField,
@@ -94,11 +95,17 @@ export function LoginPage() {
             {feedback && (
               <Alert severity={feedback.type}>{feedback.text}</Alert>
             )}
+            {loading && (
+              <Alert severity="info">
+                {isRegister ? "Criando sua conta..." : "Entrando..."}
+              </Alert>
+            )}
 
             <TextField
               label="Usuário"
               value={username}
               autoComplete="username"
+              disabled={loading}
               onChange={(event) => setUsername(event.target.value)}
               required
             />
@@ -107,6 +114,7 @@ export function LoginPage() {
               type="password"
               value={password}
               autoComplete={isRegister ? "new-password" : "current-password"}
+              disabled={loading}
               onChange={(event) => setPassword(event.target.value)}
               required
               helperText={
@@ -117,12 +125,33 @@ export function LoginPage() {
               size="large"
               type="submit"
               variant="contained"
-              disabled={loading}
+              disabled={loading || !username.trim() || !password}
+              sx={{ minHeight: 48, position: "relative", overflow: "hidden" }}
             >
-              {isRegister ? "Criar conta" : "Entrar"}
+              {loading
+                ? isRegister
+                  ? "Criando conta..."
+                  : "Entrando..."
+                : isRegister
+                  ? "Criar conta"
+                  : "Entrar"}
+              {loading && (
+                <LinearProgress
+                  color="inherit"
+                  sx={{
+                    bottom: 0,
+                    height: 3,
+                    left: 0,
+                    opacity: 0.7,
+                    position: "absolute",
+                    right: 0,
+                  }}
+                />
+              )}
             </Button>
             <Button
               type="button"
+              disabled={loading}
               onClick={() =>
                 navigate(isRegister ? "/login" : "/login?mode=register")
               }

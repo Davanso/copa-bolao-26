@@ -73,7 +73,7 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(new Error(`Origem nao permitida pelo CORS: ${origin}`));
+      return callback(new Error(`Origem não permitida pelo CORS: ${origin}`));
     },
   }),
 );
@@ -87,7 +87,7 @@ app.use("/ranking", rankingRouter);
 app.use("/groups", groupsRouter);
 app.use("/live-games", liveScoreRouter);
 app.use((_req, _res) => {
-  throw new HttpError(404, "Rota nao encontrada");
+  throw new HttpError(404, "Rota não encontrada");
 });
 app.use(
   (
@@ -99,7 +99,7 @@ app.use(
     if (error instanceof ZodError) {
       return res
         .status(400)
-        .json({ message: "Payload invalido", issues: error.issues });
+        .json({ message: "Payload inválido", issues: error.issues });
     }
 
     return errorHandler(error, req, res, next);
