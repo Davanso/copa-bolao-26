@@ -103,7 +103,7 @@ export function AppLayout() {
       <Container maxWidth="xl" sx={{ py: 2 }}>
         <Paper
           sx={{
-            p: { xs: 1.5, md: 2 },
+            p: { xs: 1.5, md: 1 },
             mb: 3,
             position: "sticky",
             top: 8,
