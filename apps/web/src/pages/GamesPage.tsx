@@ -38,6 +38,12 @@ type GuessPayload = {
   gameId: string;
   guessHome: number;
   guessAway: number;
+  silent?: boolean;
+};
+
+type GuessDraft = {
+  home: string;
+  away: string;
 };
 
 export function GamesPage() {
@@ -64,6 +70,8 @@ export function GamesPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() =>
     readExpandedGroups(),
   );
+  const [drafts, setDrafts] = useState<Record<string, GuessDraft>>({});
+  const [savingGameIds, setSavingGameIds] = useState<Set<string>>(new Set());
   const hasGames = groupedGames.length > 0;
   const allExpanded =
     hasGames && groupLabels.every((groupName) => expandedGroups.has(groupName));
@@ -97,6 +105,23 @@ export function GamesPage() {
       JSON.stringify([...expandedGroups]),
     );
   }, [expandedGroups]);
+
+  useEffect(() => {
+    setDrafts((currentDrafts) => {
+      const nextDrafts = { ...currentDrafts };
+
+      for (const game of data?.games ?? []) {
+        if (!nextDrafts[game.id]) {
+          nextDrafts[game.id] = {
+            away: scoreToInput(game.myGuess?.guessAway),
+            home: scoreToInput(game.myGuess?.guessHome),
+          };
+        }
+      }
+
+      return nextDrafts;
+    });
+  }, [data?.games]);
 
   const mutation = useMutation({
     mutationFn: (payload: GuessPayload) =>
@@ -180,7 +205,9 @@ export function GamesPage() {
               }
             : current,
       );
-      showToast("Palpite salvo com sucesso!", "success");
+      if (!payload.silent) {
+        showToast("Palpite salvo com sucesso!", "success");
+      }
     },
     onError: (err: any, _payload, context) => {
       queryClient.setQueryData(["games", "scheduled"], context?.previousGames);
@@ -194,6 +221,95 @@ export function GamesPage() {
       queryClient.invalidateQueries({ queryKey: ["guesses-me"] });
     },
   });
+  const allGames = data?.games ?? [];
+  const pendingDrafts = useMemo(
+    () =>
+      allGames
+        .map((game) => {
+          const draft = drafts[game.id];
+          const guessHome = inputToScore(draft?.home ?? "");
+          const guessAway = inputToScore(draft?.away ?? "");
+          const changed =
+            guessHome !== null &&
+            guessAway !== null &&
+            (guessHome !== game.myGuess?.guessHome ||
+              guessAway !== game.myGuess?.guessAway);
+
+          return {
+            game,
+            guessAway,
+            guessHome,
+            changed,
+          };
+        })
+        .filter(
+          (
+            item,
+          ): item is {
+            game: Game;
+            guessAway: number;
+            guessHome: number;
+            changed: boolean;
+          } =>
+            item.guessHome !== null &&
+            item.guessAway !== null &&
+            item.changed &&
+            !isGuessLocked(item.game) &&
+            item.guessHome <= 30 &&
+            item.guessAway <= 30,
+        ),
+    [allGames, drafts],
+  );
+
+  async function saveGuess(payload: GuessPayload) {
+    setSavingGameIds((currentIds) => new Set(currentIds).add(payload.gameId));
+
+    try {
+      await mutation.mutateAsync(payload);
+    } finally {
+      setSavingGameIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(payload.gameId);
+        return nextIds;
+      });
+    }
+  }
+
+  async function saveAllGuesses() {
+    if (!pendingDrafts.length) {
+      return;
+    }
+
+    const payloads = pendingDrafts.map(({ game, guessAway, guessHome }) => ({
+      gameId: game.id,
+      guessAway,
+      guessHome,
+      silent: true,
+    }));
+
+    setSavingGameIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      for (const payload of payloads) {
+        nextIds.add(payload.gameId);
+      }
+      return nextIds;
+    });
+
+    try {
+      await Promise.all(
+        payloads.map((payload) => mutation.mutateAsync(payload)),
+      );
+      showToast("Todos os palpites foram salvos!", "success");
+    } finally {
+      setSavingGameIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        for (const payload of payloads) {
+          nextIds.delete(payload.gameId);
+        }
+        return nextIds;
+      });
+    }
+  }
 
   return (
     <Stack gap={3}>
@@ -211,6 +327,14 @@ export function GamesPage() {
 
         {hasGames && (
           <Stack direction="row" gap={1} alignItems="center">
+            <Button
+              size="small"
+              variant="contained"
+              disabled={!pendingDrafts.length || savingGameIds.size > 0}
+              onClick={saveAllGuesses}
+            >
+              Salvar tudo ({pendingDrafts.length})
+            </Button>
             <Button
               size="small"
               variant={allExpanded ? "contained" : "outlined"}
@@ -307,10 +431,22 @@ export function GamesPage() {
                   <Paper sx={{ p: 1.25 }}>
                     <GameHeader game={game} />
                     <GuessForm
+                      draft={
+                        drafts[game.id] ?? {
+                          away: scoreToInput(game.myGuess?.guessAway),
+                          home: scoreToInput(game.myGuess?.guessHome),
+                        }
+                      }
                       game={game}
-                      saving={mutation.isPending}
+                      saving={savingGameIds.has(game.id)}
+                      onChange={(draft) =>
+                        setDrafts((currentDrafts) => ({
+                          ...currentDrafts,
+                          [game.id]: draft,
+                        }))
+                      }
                       onSave={(guessHome, guessAway) =>
-                        mutation.mutate({
+                        saveGuess({
                           gameId: game.id,
                           guessHome,
                           guessAway,
@@ -337,22 +473,32 @@ function ExpandMoreIcon() {
 }
 
 function GuessForm({
+  draft,
   game,
+  onChange,
   saving,
   onSave,
 }: {
+  draft: GuessDraft;
   game: Game;
+  onChange: (draft: GuessDraft) => void;
   saving: boolean;
   onSave: (home: number, away: number) => void;
 }) {
   const locked = isGuessLocked(game);
-  const [home, setHome] = useState(scoreToInput(game.myGuess?.guessHome));
-  const [away, setAway] = useState(scoreToInput(game.myGuess?.guessAway));
+  const home = draft.home;
+  const away = draft.away;
   const homeScore = inputToScore(home);
   const awayScore = inputToScore(away);
+  const changed =
+    homeScore !== null &&
+    awayScore !== null &&
+    (homeScore !== game.myGuess?.guessHome ||
+      awayScore !== game.myGuess?.guessAway);
   const canSave =
     !locked &&
     !saving &&
+    changed &&
     homeScore !== null &&
     awayScore !== null &&
     homeScore <= 30 &&
@@ -377,7 +523,12 @@ function GuessForm({
           disabled={locked || saving}
           inputProps={{ inputMode: "numeric", maxLength: 2, pattern: "[0-9]*" }}
           sx={{ minWidth: { xs: "100%", sm: 150 }, flex: 1 }}
-          onChange={(event) => setHome(normalizeScoreInput(event.target.value))}
+          onChange={(event) =>
+            onChange({
+              ...draft,
+              home: normalizeScoreInput(event.target.value),
+            })
+          }
         />
         <TextField
           label={game.teamAway}
@@ -386,7 +537,12 @@ function GuessForm({
           disabled={locked || saving}
           inputProps={{ inputMode: "numeric", maxLength: 2, pattern: "[0-9]*" }}
           sx={{ minWidth: { xs: "100%", sm: 150 }, flex: 1 }}
-          onChange={(event) => setAway(normalizeScoreInput(event.target.value))}
+          onChange={(event) =>
+            onChange({
+              ...draft,
+              away: normalizeScoreInput(event.target.value),
+            })
+          }
         />
         <Button
           size="large"
@@ -395,7 +551,7 @@ function GuessForm({
           onClick={saveGuess}
           sx={{ minWidth: { xs: "100%", sm: 170 } }}
         >
-          {game.myGuess ? "Atualizar" : "Salvar"}
+          {saving ? "Salvando..." : game.myGuess ? "Atualizar" : "Salvar"}
         </Button>
       </Stack>
 
