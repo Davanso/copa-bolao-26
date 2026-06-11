@@ -9,30 +9,32 @@
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.0",
     "bcryptjs": "latest",
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
     "jsonwebtoken": "latest",
     "pg": "latest",
-    "zod": "latest",
-    "@prisma/client": "^6.19.0"
+    "zod": "latest"
   },
   "devDependencies": {
     "@types/bcryptjs": "latest",
     "@types/cors": "latest",
     "@types/express": "latest",
     "@types/jsonwebtoken": "latest",
+    "@types/node": "^24.10.1",
     "@types/pg": "latest",
+    "prisma": "^6.19.0",
     "tsx": "latest",
     "typescript": "latest",
-    "prisma": "^6.19.0",
-    "@types/node": "^24.10.1"
+    "vitest": "^4.1.8"
   }
 }

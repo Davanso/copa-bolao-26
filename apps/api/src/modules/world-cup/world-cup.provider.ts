@@ -3,6 +3,9 @@
 const providerUrl =
   process.env.WORLD_CUP_API_URL ?? "https://worldcup26.ir/get/games";
 const isDevelopment = process.env.NODE_ENV !== "production";
+const apiDateBrazilDisplayOffsetHours = Number(
+  process.env.WORLD_CUP_API_BRAZIL_DISPLAY_OFFSET_HOURS ?? 6,
+);
 
 let cachedAt = 0;
 let cachedGames: Game[] = [];
@@ -189,7 +192,7 @@ function normalizeStage(type?: string) {
   return labels[type ?? ""] ?? "Copa do Mundo";
 }
 
-function parseApiDate(value?: string) {
+export function parseApiDate(value?: string) {
   if (!value) {
     return new Date(0);
   }
@@ -198,7 +201,34 @@ function parseApiDate(value?: string) {
   const [month, day, year] = datePart.split("/").map(Number);
   const [hour, minute] = timePart.split(":").map(Number);
 
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
+  return apiLocalDateToBrazilInstant({
+    day,
+    hour,
+    minute,
+    month,
+    offsetHours: apiDateBrazilDisplayOffsetHours,
+    year,
+  });
+}
+
+export function apiLocalDateToBrazilInstant({
+  day,
+  hour,
+  minute,
+  month,
+  offsetHours,
+  year,
+}: {
+  day: number;
+  hour: number;
+  minute: number;
+  month: number;
+  offsetHours: number;
+  year: number;
+}) {
+  return new Date(
+    Date.UTC(year, month - 1, day, hour + offsetHours, minute, 0, 0),
+  );
 }
 
 function fallbackGames(error: unknown) {
