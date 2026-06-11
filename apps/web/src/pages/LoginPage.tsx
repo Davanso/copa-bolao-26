@@ -10,10 +10,16 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, apiBaseUrl } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
+import {
+  nextLoginModePath,
+  nextPathAfterAuth,
+  pendingInviteStorageKey,
+} from "../services/inviteFlow";
 import logo from "../assets/logo-fifa.webp";
 
 function messageFromError(error: any) {
@@ -37,6 +43,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -56,8 +63,15 @@ export function LoginPage() {
           : "Conta criada com sucesso!";
       setFeedback({ type: "success", text: successMessage });
       showToast(successMessage, "success");
+      queryClient.clear();
       login(data.token, data.user);
-      navigate("/", { replace: true });
+      navigate(
+        nextPathAfterAuth(
+          location.search,
+          localStorage.getItem(pendingInviteStorageKey),
+        ),
+        { replace: true },
+      );
     } catch (error: any) {
       const text = messageFromError(error);
       setFeedback({ type: "error", text });
@@ -152,9 +166,10 @@ export function LoginPage() {
             <Button
               type="button"
               disabled={loading}
-              onClick={() =>
-                navigate(isRegister ? "/login" : "/login?mode=register")
-              }
+              onClick={() => {
+                const nextMode = isRegister ? "login" : "register";
+                navigate(nextLoginModePath(location.search, nextMode));
+              }}
             >
               {" "}
               {isRegister ? "Já tenho conta" : "Criar conta"}

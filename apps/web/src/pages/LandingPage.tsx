@@ -26,7 +26,7 @@ export function LandingPage() {
         <Grid item xs={12} md={7}>
           <Stack gap={3}>
             <Chip
-              label="Bolão casual da Copa 2026"
+              label="Seu app preferido de bolão!"
               color="secondary"
               sx={{ alignSelf: "flex-start", fontWeight: 900 }}
             />

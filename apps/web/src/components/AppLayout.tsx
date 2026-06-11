@@ -18,6 +18,7 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
+import { useQueryClient } from "@tanstack/react-query";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
@@ -191,6 +192,7 @@ export function AppLayout() {
   const desktop = useMediaQuery("(min-width: 900px)");
   const { user, logout } = useAuth();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openOnboarding, setOpenOnboarding] =
     useState<OnboardingContent | null>(null);
@@ -199,6 +201,7 @@ export function AppLayout() {
   >(null);
 
   function handleLogout() {
+    queryClient.clear();
     logout();
     setAnchorEl(null);
     showToast("Você saiu da sua conta.", "info");

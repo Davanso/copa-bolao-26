@@ -9,6 +9,7 @@ import { GuessesPage } from "../pages/GuessesPage";
 import { RankingPage } from "../pages/RankingPage";
 import { GroupsPage } from "../pages/GroupsPage";
 import { GroupDetailsPage } from "../pages/GroupDetailsPage";
+import { JoinGroupPage } from "../pages/JoinGroupPage";
 
 const lastRouteStorageKey = "bolao.lastRoute";
 
@@ -19,6 +20,7 @@ export function AppRoutes() {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/join/:inviteCode" element={<JoinGroupPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -27,6 +29,7 @@ export function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/join/:inviteCode" element={<JoinGroupPage />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<HomeRoute />} />
         <Route path="/live" element={<LivePage />} />

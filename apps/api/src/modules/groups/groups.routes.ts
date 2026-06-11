@@ -88,6 +88,36 @@ groupsRouter.post("/join", requireAuth, async (req, res) => {
   res.status(201).json({ group });
 });
 
+groupsRouter.get("/invite/:inviteCode", async (req, res) => {
+  const inviteCode = String(req.params.inviteCode).trim().toUpperCase();
+  const group = await prisma.bolaoGroup.findUnique({
+    where: { inviteCode },
+    include: {
+      owner: {
+        select: { id: true, username: true },
+      },
+      _count: {
+        select: { members: true },
+      },
+    },
+  });
+
+  if (!group) {
+    throw new HttpError(404, "Código de convite inválido");
+  }
+
+  res.json({
+    group: {
+      description: group.description,
+      id: group.id,
+      inviteCode: group.inviteCode,
+      memberCount: group._count.members,
+      name: group.name,
+      ownerUsername: group.owner.username,
+    },
+  });
+});
+
 groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
   const { group } = await ensureMember(
     String(req.params.groupId),

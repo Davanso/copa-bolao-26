@@ -15,6 +15,7 @@ import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
+import { buildInviteLink } from "../services/inviteFlow";
 import type { Group } from "../services/types";
 
 const roleLabel: Record<string, string> = {
@@ -79,8 +80,8 @@ export function GroupsPage() {
 
   async function copyInvite(code: string) {
     try {
-      await copyToClipboard(code);
-      showToast("Código copiado para a área de transferência.", "success");
+      await copyToClipboard(inviteLink(code));
+      showToast("Link de convite copiado!", "success");
     } catch {
       showToast(
         "Não foi possível copiar automaticamente. Selecione o código na tela.",
@@ -191,6 +192,10 @@ export function GroupsPage() {
       </Grid>
     </Stack>
   );
+}
+
+function inviteLink(code: string) {
+  return buildInviteLink(window.location.origin, code);
 }
 
 async function copyToClipboard(value: string) {
