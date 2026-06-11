@@ -8,6 +8,8 @@ import {
   Grid,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   Typography,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
@@ -39,6 +41,34 @@ const podiumConfig = [
     emoji: "🥉",
     height: 122,
     label: "Terceiro",
+  },
+];
+
+const defaultScoringRules = [
+  { stage: "Fase de grupos", exactPoints: 3, resultPoints: 1 },
+  { stage: "16 avos de final", exactPoints: 4, resultPoints: 2 },
+  { stage: "Oitavas de final", exactPoints: 5, resultPoints: 2 },
+  { stage: "Quartas de final", exactPoints: 6, resultPoints: 3 },
+  { stage: "Semifinal", exactPoints: 8, resultPoints: 4 },
+  { stage: "Disputa de terceiro lugar", exactPoints: 8, resultPoints: 4 },
+  { stage: "Final", exactPoints: 10, resultPoints: 5 },
+];
+
+const scoringRuleTabs = [
+  {
+    id: "group",
+    label: "Fase de grupos",
+    stages: ["Fase de grupos"],
+  },
+  {
+    id: "early-knockout",
+    label: "Início do mata-mata",
+    stages: ["16 avos de final", "Oitavas de final", "Quartas de final"],
+  },
+  {
+    id: "finals",
+    label: "Finais",
+    stages: ["Semifinal", "Disputa de terceiro lugar", "Final"],
   },
 ];
 
@@ -86,39 +116,6 @@ export function RankingPage() {
         </Typography>
       </Stack>
 
-      <Paper
-        sx={{
-          background:
-            "linear-gradient(135deg, rgba(0,156,59,.12), rgba(255,204,41,.14))",
-          border: "1px solid rgba(0, 156, 59, .16)",
-          p: 2,
-        }}
-      >
-        <Stack gap={1}>
-          <Typography variant="h6">Regra de pontua??o</Typography>
-          <Grid container spacing={1}>
-            <Grid item xs={12} md={4}>
-              <Chip color="primary" label="3 pontos" />
-              <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                Placar exato da partida.
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Chip color="secondary" label="1 ponto" />
-              <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                Acertou o vencedor ou empate, mas errou o placar.
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Chip label="0 ponto" />
-              <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                Errou o resultado da partida.
-              </Typography>
-            </Grid>
-          </Grid>
-        </Stack>
-      </Paper>
-
       {groupsQuery.isLoading && (
         <LoadingState
           title="Carregando rankings"
@@ -151,24 +148,29 @@ export function RankingPage() {
       </Grid>
 
       {selectedGroup && (
-        <Paper
-          sx={{
-            background:
-              "linear-gradient(135deg, rgba(0,156,59,.14), rgba(0,82,180,.12))",
-            border: "1px solid rgba(0, 82, 180, .14)",
-            p: 2.5,
-          }}
-        >
-          <Stack gap={0.75}>
-            <Typography variant="h5">Ranking: {selectedGroup.name}</Typography>
-            <Typography color="text.secondary">
-              Premiação simbólica total:{" "}
-              {currency.format(selectedGroup.symbolicPrizeTotal ?? 0)}
-            </Typography>
-          </Stack>
-        </Paper>
-      )}
+        <Stack gap={1.5}>
+          <Paper
+            sx={{
+              background:
+                "linear-gradient(135deg, rgba(0,156,59,.14), rgba(0,82,180,.12))",
+              border: "1px solid rgba(0, 82, 180, .14)",
+              p: 2.5,
+            }}
+          >
+            <Stack gap={0.75}>
+              <Typography variant="h5">
+                Ranking: {selectedGroup.name}
+              </Typography>
+              <Typography color="text.secondary">
+                Premiação simbólica total:{" "}
+                {currency.format(selectedGroup.symbolicPrizeTotal ?? 0)}
+              </Typography>
+            </Stack>
+          </Paper>
 
+          <ScoringRulesSummary group={selectedGroup} />
+        </Stack>
+      )}
       {rankingQuery.isLoading && selectedGroupId && (
         <LoadingState
           title="Calculando ranking"
@@ -265,6 +267,77 @@ function PodiumCard({
           </Typography>
         )}
       </Box>
+    </Paper>
+  );
+}
+
+function ScoringRulesSummary({ group }: { group: Group }) {
+  const [selectedTab, setSelectedTab] = useState(scoringRuleTabs[0].id);
+  const selectedRuleTab =
+    scoringRuleTabs.find((tab) => tab.id === selectedTab) ?? scoringRuleTabs[0];
+  const rulesByStage = new Map(
+    (group.scoringRules ?? []).map((rule) => [rule.stage, rule]),
+  );
+  const visibleRules = defaultScoringRules
+    .map((rule) => ({
+      ...rule,
+      ...rulesByStage.get(rule.stage),
+    }))
+    .filter((rule) => selectedRuleTab.stages.includes(rule.stage));
+
+  return (
+    <Paper
+      sx={{
+        background:
+          "linear-gradient(135deg, rgba(0,156,59,.10), rgba(255,204,41,.12))",
+        border: "1px solid rgba(0, 156, 59, .16)",
+        p: 2,
+      }}
+    >
+      <Stack gap={1.25}>
+        <Stack>
+          <Typography variant="h6">Regras usadas neste ranking</Typography>
+          <Typography color="text.secondary">
+            Cada grupo pode ter uma pontuação própria. Este resumo acompanha o
+            grupo selecionado e segue as mesmas fases da tela do grupo.
+          </Typography>
+        </Stack>
+
+        <Paper sx={{ p: 1 }}>
+          <Tabs
+            value={selectedTab}
+            variant="scrollable"
+            scrollButtons="auto"
+            onChange={(_, value: string) => setSelectedTab(value)}
+          >
+            {scoringRuleTabs.map((tab) => (
+              <Tab key={tab.id} label={tab.label} value={tab.id} />
+            ))}
+          </Tabs>
+        </Paper>
+
+        <Grid container spacing={1}>
+          {visibleRules.map((rule) => (
+            <Grid item xs={12} sm={6} md={4} key={rule.stage}>
+              <Paper variant="outlined" sx={{ p: 1.25 }}>
+                <Stack gap={0.75}>
+                  <Typography fontWeight={900}>{rule.stage}</Typography>
+                  <Stack direction="row" gap={1} flexWrap="wrap">
+                    <Chip
+                      color="primary"
+                      label={`${rule.exactPoints} pts placar`}
+                    />
+                    <Chip
+                      color="secondary"
+                      label={`${rule.resultPoints} pts resultado`}
+                    />
+                  </Stack>
+                </Stack>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Stack>
     </Paper>
   );
 }

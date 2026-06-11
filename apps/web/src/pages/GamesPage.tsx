@@ -25,6 +25,7 @@ import { isGuessLocked } from "../services/gameHelpers";
 import type { Game, Guess } from "../services/types";
 
 const expandedGroupsStorageKey = "bolao.games.expandedGroups";
+const unsavedGuessesStorageKey = "bolao.unsavedGuesses";
 
 type GamesResponse = {
   games: Game[];
@@ -310,6 +311,33 @@ export function GamesPage() {
       });
     }
   }
+
+  useEffect(() => {
+    localStorage.setItem(
+      unsavedGuessesStorageKey,
+      pendingDrafts.length > 0 ? "true" : "false",
+    );
+
+    return () => {
+      localStorage.setItem(unsavedGuessesStorageKey, "false");
+    };
+  }, [pendingDrafts.length]);
+
+  useEffect(() => {
+    function confirmBeforeUnload(event: BeforeUnloadEvent) {
+      if (!pendingDrafts.length) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", confirmBeforeUnload);
+
+    return () =>
+      window.removeEventListener("beforeunload", confirmBeforeUnload);
+  }, [pendingDrafts.length]);
 
   return (
     <Stack gap={3}>

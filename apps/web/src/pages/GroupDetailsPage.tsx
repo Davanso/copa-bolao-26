@@ -11,6 +11,8 @@ import {
   Grid,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -22,7 +24,12 @@ import { LoadingState } from "../components/LoadingState";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
-import type { Group, GroupMember, PrizeRule } from "../services/types";
+import type {
+  Group,
+  GroupMember,
+  PrizeRule,
+  ScoringRule,
+} from "../services/types";
 
 type GroupDetails = {
   group: Group;
@@ -34,6 +41,32 @@ type GroupsMe = {
 };
 
 const roleLabel = { owner: "Dono", member: "Membro" };
+const defaultScoringRules: ScoringRule[] = [
+  { stage: "Fase de grupos", exactPoints: 3, resultPoints: 1 },
+  { stage: "16 avos de final", exactPoints: 4, resultPoints: 2 },
+  { stage: "Oitavas de final", exactPoints: 5, resultPoints: 2 },
+  { stage: "Quartas de final", exactPoints: 6, resultPoints: 3 },
+  { stage: "Semifinal", exactPoints: 8, resultPoints: 4 },
+  { stage: "Disputa de terceiro lugar", exactPoints: 8, resultPoints: 4 },
+  { stage: "Final", exactPoints: 10, resultPoints: 5 },
+];
+const scoringRuleTabs = [
+  {
+    id: "group",
+    label: "Fase de grupos",
+    stages: ["Fase de grupos"],
+  },
+  {
+    id: "early-knockout",
+    label: "Início do mata-mata",
+    stages: ["16 avos de final", "Oitavas de final", "Quartas de final"],
+  },
+  {
+    id: "finals",
+    label: "Finais",
+    stages: ["Semifinal", "Disputa de terceiro lugar", "Final"],
+  },
+];
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
@@ -155,6 +188,27 @@ export function GroupDetailsPage() {
         "error",
       );
     },
+  });
+  const saveScoringRules = useMutation({
+    mutationFn: (rules: ScoringRule[]) =>
+      api.put<{ group: Group }>(`/groups/${groupId}/scoring-rules`, {
+        rules,
+      }),
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<GroupDetails>(groupQueryKey, (current) =>
+        current
+          ? { ...current, group: { ...current.group, ...data.group } }
+          : current,
+      );
+      updateGroupInList(queryClient, groupId, data.group);
+      showToast("Regras de pontuação salvas.", "success");
+      queryClient.invalidateQueries({ queryKey: groupRankingQueryKey });
+    },
+    onError: (err) =>
+      showToast(
+        apiMessage(err, "Não foi possível salvar as regras de pontuação."),
+        "error",
+      ),
   });
   const updateGroup = useMutation({
     mutationFn: () =>
@@ -336,6 +390,13 @@ export function GroupDetailsPage() {
             isOwner={Boolean(isOwner)}
             saving={savePrize.isPending}
             onSave={(payload) => savePrize.mutate(payload)}
+          />
+
+          <ScoringRulesCard
+            group={data.group}
+            isOwner={Boolean(isOwner)}
+            saving={saveScoringRules.isPending}
+            onSave={(rules) => saveScoringRules.mutate(rules)}
           />
 
           <Grid container spacing={2}>
@@ -520,8 +581,8 @@ function PrizeCard({
     rules: PrizeRule[];
   }) => void;
 }) {
-  const [contributions, setContributions] = useState<Record<string, string>>(
-    () => memberContributions(members),
+  const [perMemberValue, setPerMemberValue] = useState(() =>
+    String(commonContributionValue(members)),
   );
   const [rules, setRules] = useState<PrizeRule[]>(
     group.prizeRules?.length
@@ -534,7 +595,7 @@ function PrizeCard({
   );
 
   useEffect(() => {
-    setContributions(memberContributions(members));
+    setPerMemberValue(String(commonContributionValue(members)));
     setRules(
       group.prizeRules?.length
         ? group.prizeRules
@@ -546,14 +607,9 @@ function PrizeCard({
     );
   }, [group, members]);
 
-  const total = useMemo(
-    () =>
-      Object.values(contributions).reduce(
-        (sum, value) => sum + contributionToNumber(value),
-        0,
-      ),
-    [contributions],
-  );
+  const memberCount = members.length;
+  const perMemberAmount = contributionToNumber(perMemberValue);
+  const total = perMemberAmount * memberCount;
   const percentageTotal = useMemo(
     () => rules.reduce((sum, rule) => sum + Number(rule.percentage), 0),
     [rules],
@@ -567,13 +623,9 @@ function PrizeCard({
     );
   }
 
-  function updateContribution(userId: string, value: string) {
-    setContributions((current) => ({ ...current, [userId]: value }));
-  }
-
   const payloadContributions = members.map((member) => ({
     userId: member.userId,
-    amount: contributionToNumber(contributions[member.userId] ?? ""),
+    amount: perMemberAmount,
   }));
 
   return (
@@ -583,7 +635,7 @@ function PrizeCard({
           <Typography variant="h5">Premiação simbólica</Typography>
           <Typography color="text.secondary">
             {isOwner
-              ? "Preencha quanto cada participante combinou. O app soma tudo e calcula a divisão."
+              ? "Defina um valor simbólico por pessoa. O app multiplica pela quantidade de membros e calcula a divisão."
               : "Resumo do valor total combinado e como ele será dividido."}
           </Typography>
         </Stack>
@@ -605,34 +657,29 @@ function PrizeCard({
                 Valor total simbólico
               </Typography>
               <Typography variant="h4">{currency.format(total)}</Typography>
+              <Typography color="text.secondary">
+                {memberCount} membro{memberCount === 1 ? "" : "s"} a{" "}
+                {currency.format(perMemberAmount)} cada
+              </Typography>
             </Box>
           </Stack>
         </Paper>
 
         {isOwner && (
           <Stack gap={1}>
-            <Typography variant="h6">Valor por participante</Typography>
-            <Grid container spacing={1.5}>
-              {members.map((member) => (
-                <Grid item xs={12} md={6} key={member.id}>
-                  <TextField
-                    fullWidth
-                    label={member.user.username}
-                    placeholder="0"
-                    value={contributions[member.userId] ?? ""}
-                    disabled={saving}
-                    inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-                    helperText={roleLabel[member.role]}
-                    onChange={(event) =>
-                      updateContribution(
-                        member.userId,
-                        event.target.value.replace(/\D/g, ""),
-                      )
-                    }
-                  />
-                </Grid>
-              ))}
-            </Grid>
+            <Typography variant="h6">Valor por pessoa</Typography>
+            <TextField
+              fullWidth
+              label="Quanto cada membro apostou simbólicamente"
+              placeholder="0"
+              value={perMemberValue}
+              disabled={saving}
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+              helperText={`${memberCount} membro${memberCount === 1 ? "" : "s"} no grupo. Total: ${currency.format(total)}`}
+              onChange={(event) =>
+                setPerMemberValue(event.target.value.replace(/\D/g, ""))
+              }
+            />
           </Stack>
         )}
 
@@ -722,4 +769,162 @@ function PrizeCard({
 
 function contributionToNumber(value: string) {
   return value ? Number(value) : 0;
+}
+
+function commonContributionValue(members: GroupMember[]) {
+  if (!members.length) {
+    return 0;
+  }
+
+  const firstContribution = members[0].symbolicContribution ?? 0;
+  const sameForEveryone = members.every(
+    (member) => (member.symbolicContribution ?? 0) === firstContribution,
+  );
+
+  return sameForEveryone ? firstContribution : 0;
+}
+
+function ScoringRulesCard({
+  group,
+  isOwner,
+  onSave,
+  saving,
+}: {
+  group: Group;
+  isOwner: boolean;
+  onSave: (rules: ScoringRule[]) => void;
+  saving: boolean;
+}) {
+  const [rules, setRules] = useState<ScoringRule[]>(() =>
+    mergeScoringRules(group.scoringRules),
+  );
+  const [selectedTab, setSelectedTab] = useState(scoringRuleTabs[0].id);
+  const selectedRuleTab =
+    scoringRuleTabs.find((tab) => tab.id === selectedTab) ?? scoringRuleTabs[0];
+  const visibleRules = rules.filter((rule) =>
+    selectedRuleTab.stages.includes(rule.stage),
+  );
+
+  useEffect(() => {
+    setRules(mergeScoringRules(group.scoringRules));
+  }, [group.scoringRules]);
+
+  function updateRule(
+    stage: string,
+    field: "exactPoints" | "resultPoints",
+    value: number,
+  ) {
+    setRules((currentRules) =>
+      currentRules.map((rule) =>
+        rule.stage === stage ? { ...rule, [field]: value } : rule,
+      ),
+    );
+  }
+
+  return (
+    <Paper sx={{ p: { xs: 2.5, md: 3 } }}>
+      <Stack gap={2}>
+        <Stack>
+          <Typography variant="h5">Pontuação do grupo</Typography>
+          <Typography color="text.secondary">
+            {isOwner
+              ? "Personalize quanto vale cravar o placar e acertar apenas o resultado em cada fase."
+              : "Estas são as regras de pontuação definidas pelo dono do grupo."}
+          </Typography>
+        </Stack>
+
+        <Paper
+          sx={{
+            bgcolor: "rgba(0, 82, 180, 0.07)",
+            border: "1px solid rgba(0, 82, 180, 0.16)",
+            p: 2,
+          }}
+        >
+          <Stack gap={0.75}>
+            <Typography fontWeight={900}>Como funciona</Typography>
+            <Typography color="text.secondary">
+              Placar exato vale a pontuação cheia da fase. Se errar o placar,
+              mas acertar vitória/empate/derrota, vale a pontuação de resultado.
+            </Typography>
+          </Stack>
+        </Paper>
+
+        <Paper sx={{ p: 1 }}>
+          <Tabs
+            value={selectedTab}
+            variant="scrollable"
+            scrollButtons="auto"
+            onChange={(_, value: string) => setSelectedTab(value)}
+          >
+            {scoringRuleTabs.map((tab) => (
+              <Tab key={tab.id} label={tab.label} value={tab.id} />
+            ))}
+          </Tabs>
+        </Paper>
+
+        <Grid container spacing={1.5}>
+          {visibleRules.map((rule) => (
+            <Grid item xs={12} md={6} lg={4} key={rule.stage}>
+              <Paper sx={{ p: 1.5 }}>
+                <Stack gap={1.25}>
+                  <Typography fontWeight={900}>{rule.stage}</Typography>
+                  <Stack direction="row" gap={1}>
+                    <TextField
+                      fullWidth
+                      label="Placar exato"
+                      type="number"
+                      value={rule.exactPoints}
+                      disabled={!isOwner || saving}
+                      inputProps={{ min: 0, max: 100 }}
+                      onChange={(event) =>
+                        updateRule(
+                          rule.stage,
+                          "exactPoints",
+                          Number(event.target.value),
+                        )
+                      }
+                    />
+                    <TextField
+                      fullWidth
+                      label="Resultado"
+                      type="number"
+                      value={rule.resultPoints}
+                      disabled={!isOwner || saving}
+                      inputProps={{ min: 0, max: 100 }}
+                      onChange={(event) =>
+                        updateRule(
+                          rule.stage,
+                          "resultPoints",
+                          Number(event.target.value),
+                        )
+                      }
+                    />
+                  </Stack>
+                </Stack>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+
+        {isOwner && (
+          <Button
+            variant="contained"
+            disabled={saving}
+            onClick={() => onSave(rules)}
+          >
+            Salvar regras de pontuação
+          </Button>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+function mergeScoringRules(rules?: ScoringRule[]) {
+  const rulesByStage = new Map((rules ?? []).map((rule) => [rule.stage, rule]));
+
+  return defaultScoringRules.map((rule) => ({
+    ...rule,
+    ...rulesByStage.get(rule.stage),
+  }));
 }

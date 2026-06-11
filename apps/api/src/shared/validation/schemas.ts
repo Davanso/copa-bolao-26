@@ -90,3 +90,28 @@ export const symbolicPrizeSchema = z
       });
     }
   });
+
+export const scoringRulesSchema = z
+  .object({
+    rules: z
+      .array(
+        z.object({
+          exactPoints: z.coerce.number().int().min(0).max(100),
+          resultPoints: z.coerce.number().int().min(0).max(100),
+          stage: z.string().min(1).max(80),
+        }),
+      )
+      .min(1)
+      .max(20),
+  })
+  .superRefine((value, context) => {
+    const stages = new Set(value.rules.map((rule) => rule.stage));
+
+    if (stages.size !== value.rules.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Cada fase só pode aparecer uma vez.",
+        path: ["rules"],
+      });
+    }
+  });

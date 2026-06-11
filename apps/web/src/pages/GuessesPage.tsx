@@ -4,7 +4,6 @@ import {
   AccordionDetails,
   AccordionSummary,
   Alert,
-  Box,
   Button,
   Chip,
   Dialog,
@@ -22,6 +21,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
+import { TeamFlag } from "../components/TeamFlag";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import {
@@ -29,7 +29,6 @@ import {
   isGuessLocked,
   statusLabel,
 } from "../services/gameHelpers";
-import { flagUrlForTeam } from "../services/teamFlags";
 import type { Game, Guess } from "../services/types";
 
 const expandedGuessesStorageKey = "bolao.guesses.expandedGroups";
@@ -374,23 +373,9 @@ function GuessCard({ guess, onEdit }: { guess: Guess; onEdit: () => void }) {
 }
 
 function TeamWithFlag({ name }: { name: string }) {
-  const flagUrl = flagUrlForTeam(name);
-
   return (
     <Stack direction="row" alignItems="center" gap={0.75}>
-      {flagUrl && (
-        <Box
-          alt={`Bandeira de ${name}`}
-          component="img"
-          src={flagUrl}
-          sx={{
-            borderRadius: 0.5,
-            height: 16,
-            objectFit: "cover",
-            width: 24,
-          }}
-        />
-      )}
+      <TeamFlag name={name} />
       <Typography fontWeight={800}>{name}</Typography>
     </Stack>
   );

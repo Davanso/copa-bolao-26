@@ -6,6 +6,7 @@ import { HttpError } from "../../shared/errors/http.js";
 import {
   groupSchema,
   joinGroupSchema,
+  scoringRulesSchema,
   symbolicPrizeSchema,
 } from "../../shared/validation/schemas.js";
 import { buildRanking } from "../ranking/ranking.routes.js";
@@ -36,7 +37,12 @@ groupsRouter.get("/me", requireAuth, async (req, res) => {
   const memberships = await prisma.groupMember.findMany({
     where: { userId: req.user!.id },
     include: {
-      group: { include: { prizeRules: { orderBy: { position: "asc" } } } },
+      group: {
+        include: {
+          prizeRules: { orderBy: { position: "asc" } },
+          scoringRules: { orderBy: { stage: "asc" } },
+        },
+      },
     },
     orderBy: { joinedAt: "desc" },
   });
@@ -118,7 +124,7 @@ groupsRouter.get("/:groupId/ranking", requireAuth, async (req, res) => {
   const members = await prisma.groupMember.findMany({ where: { groupId } });
   const userIds = members.map((member) => member.userId);
 
-  res.json({ ranking: await buildRanking(userIds) });
+  res.json({ ranking: await buildRanking(userIds, groupId) });
 });
 
 groupsRouter.post(
@@ -149,7 +155,10 @@ groupsRouter.put("/:groupId", requireAuth, async (req, res) => {
       name: body.name,
       description: body.description,
     },
-    include: { prizeRules: { orderBy: { position: "asc" } } },
+    include: {
+      prizeRules: { orderBy: { position: "asc" } },
+      scoringRules: { orderBy: { stage: "asc" } },
+    },
   });
 
   res.json({ group });
@@ -234,6 +243,35 @@ groupsRouter.put("/:groupId/symbolic-prize", requireAuth, async (req, res) => {
   res.json({ group: updatedGroup, members: updatedMembers });
 });
 
+groupsRouter.put("/:groupId/scoring-rules", requireAuth, async (req, res) => {
+  const groupId = String(req.params.groupId);
+  const body = scoringRulesSchema.parse(req.body);
+  await ensureOwner(groupId, req.user!.id);
+
+  const group = await prisma.$transaction(async (transaction) => {
+    await transaction.groupScoringRule.deleteMany({ where: { groupId } });
+
+    await transaction.groupScoringRule.createMany({
+      data: body.rules.map((rule) => ({
+        exactPoints: rule.exactPoints,
+        groupId,
+        resultPoints: rule.resultPoints,
+        stage: rule.stage,
+      })),
+    });
+
+    return transaction.bolaoGroup.findUniqueOrThrow({
+      where: { id: groupId },
+      include: {
+        prizeRules: { orderBy: { position: "asc" } },
+        scoringRules: { orderBy: { stage: "asc" } },
+      },
+    });
+  });
+
+  res.json({ group });
+});
+
 groupsRouter.delete("/:groupId", requireAuth, async (req, res) => {
   const groupId = String(req.params.groupId);
   await ensureOwner(groupId, req.user!.id);
@@ -284,7 +322,10 @@ groupsRouter.delete(
 async function ensureMember(groupId: string, userId: string) {
   const group = await prisma.bolaoGroup.findUnique({
     where: { id: groupId },
-    include: { prizeRules: { orderBy: { position: "asc" } } },
+    include: {
+      prizeRules: { orderBy: { position: "asc" } },
+      scoringRules: { orderBy: { stage: "asc" } },
+    },
   });
 
   if (!group) {

@@ -1,11 +1,11 @@
-﻿import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Chip, Paper, Stack, Typography } from "@mui/material";
+import { TeamFlag } from "./TeamFlag";
 import type { Game } from "../services/types";
 import {
   formatGameDate,
   statusColor,
   statusLabel,
 } from "../services/gameHelpers";
-import { flagUrlForTeam } from "../services/teamFlags";
 
 export function GameHeader({ game }: { game: Game }) {
   const score =
@@ -23,14 +23,14 @@ export function GameHeader({ game }: { game: Game }) {
         >
           <Chip
             size="small"
-            label={`${game.stage}${game.groupName ? ` · Grupo ${game.groupName}` : ""}`}
+            label={`${game.stage}${game.groupName ? ` - Grupo ${game.groupName}` : ""}`}
           />
           <Chip
             size="small"
             color={statusColor[game.status]}
             label={
               game.status === "live"
-                ? `Ao vivo · ${game.liveMinute ?? "?"}'`
+                ? `Ao vivo - ${game.liveMinute ?? "?"}'`
                 : statusLabel[game.status]
             }
           />
@@ -73,7 +73,6 @@ function TeamName({
   name: string;
   align?: "left" | "right";
 }) {
-  const flagUrl = flagUrlForTeam(name);
   const isRight = align === "right";
 
   return (
@@ -90,20 +89,7 @@ function TeamName({
         minWidth: 0,
       }}
     >
-      {flagUrl && (
-        <Box
-          alt={`Bandeira de ${name}`}
-          component="img"
-          src={flagUrl}
-          sx={{
-            borderRadius: 0.75,
-            boxShadow: "0 4px 12px rgba(15, 23, 42, 0.18)",
-            height: 20,
-            objectFit: "cover",
-            width: 30,
-          }}
-        />
-      )}
+      <TeamFlag name={name} />
       <Typography
         variant="h6"
         title={name}

@@ -38,6 +38,13 @@ export type PrizeRule = {
   percentage: number;
 };
 
+export type ScoringRule = {
+  id?: string;
+  stage: string;
+  exactPoints: number;
+  resultPoints: number;
+};
+
 export type Group = {
   id: string;
   name: string;
@@ -46,6 +53,7 @@ export type Group = {
   ownerUserId: string;
   symbolicPrizeTotal: number;
   prizeRules?: PrizeRule[];
+  scoringRules?: ScoringRule[];
   memberRole?: "owner" | "member";
 };
 

@@ -31,7 +31,8 @@ const nav = [
   { label: "Grupos", path: "/groups", icon: "👥" },
 ];
 const lastRouteStorageKey = "bolao.lastRoute";
-const onboardingStoragePrefix = "bolao.onboarding.page.seen";
+const onboardingStoragePrefix = "bolao.onboarding.seen";
+const unsavedGuessesStorageKey = "bolao.unsavedGuesses";
 
 type OnboardingContent = {
   id: string;
@@ -180,36 +181,8 @@ const NavIcon = ({ icon }: { icon: string }) => (
   </Box>
 );
 
-function onboardingForPath(pathname: string) {
-  if (pathname === "/") {
-    return onboardingByPage.find((item) => item.id === "games") ?? null;
-  }
-
-  if (/^\/groups\/[^/]+/.test(pathname)) {
-    return onboardingByPage.find((item) => item.id === "group-details") ?? null;
-  }
-
-  if (pathname.startsWith("/groups")) {
-    return onboardingByPage.find((item) => item.id === "groups") ?? null;
-  }
-
-  if (pathname.startsWith("/ranking")) {
-    return onboardingByPage.find((item) => item.id === "ranking") ?? null;
-  }
-
-  if (pathname.startsWith("/guesses")) {
-    return onboardingByPage.find((item) => item.id === "guesses") ?? null;
-  }
-
-  if (pathname.startsWith("/live")) {
-    return onboardingByPage.find((item) => item.id === "live") ?? null;
-  }
-
-  return null;
-}
-
-function onboardingKey(userId: string, pageId: string) {
-  return `${onboardingStoragePrefix}.${userId}.${pageId}`;
+function onboardingKey(userId: string) {
+  return `${onboardingStoragePrefix}.${userId}`;
 }
 
 export function AppLayout() {
@@ -221,6 +194,9 @@ export function AppLayout() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openOnboarding, setOpenOnboarding] =
     useState<OnboardingContent | null>(null);
+  const [pendingNavigationPath, setPendingNavigationPath] = useState<
+    string | null
+  >(null);
 
   function handleLogout() {
     logout();
@@ -244,21 +220,14 @@ export function AppLayout() {
       return;
     }
 
-    const pageOnboarding = onboardingForPath(location.pathname);
-
-    if (!pageOnboarding) {
-      setOpenOnboarding(null);
-      return;
-    }
-
-    const key = onboardingKey(user.id, pageOnboarding.id);
+    const key = onboardingKey(user.id);
 
     if (!localStorage.getItem(key)) {
-      setOpenOnboarding(pageOnboarding);
+      setOpenOnboarding(onboardingByPage[0]);
     } else {
       setOpenOnboarding(null);
     }
-  }, [location.pathname, user]);
+  }, [user]);
 
   function activeNavPath() {
     const activeItem = nav.find((item) =>
@@ -271,12 +240,31 @@ export function AppLayout() {
   }
 
   function goToNav(path: string) {
+    if (
+      location.pathname === "/" &&
+      path !== "/" &&
+      localStorage.getItem(unsavedGuessesStorageKey) === "true"
+    ) {
+      setPendingNavigationPath(path);
+      return;
+    }
+
     navigate(path, { state: { skipRouteRestore: true } });
+  }
+
+  function confirmPendingNavigation() {
+    if (!pendingNavigationPath) {
+      return;
+    }
+
+    localStorage.setItem(unsavedGuessesStorageKey, "false");
+    navigate(pendingNavigationPath, { state: { skipRouteRestore: true } });
+    setPendingNavigationPath(null);
   }
 
   function closeWelcome() {
     if (user && openOnboarding) {
-      localStorage.setItem(onboardingKey(user.id, openOnboarding.id), "true");
+      localStorage.setItem(onboardingKey(user.id), "true");
     }
 
     setOpenOnboarding(null);
@@ -382,6 +370,32 @@ export function AppLayout() {
         <DialogActions sx={{ p: 2.5, pt: 1 }}>
           <Button variant="contained" onClick={closeWelcome}>
             {openOnboarding?.action ?? "Entendi"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingNavigationPath)}
+        onClose={() => setPendingNavigationPath(null)}
+        fullWidth
+      >
+        <DialogTitle>Sair sem salvar palpites?</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary">
+            Você tem palpites preenchidos que ainda não foram salvos. Se sair
+            agora, essas alterações serão perdidas.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button onClick={() => setPendingNavigationPath(null)}>
+            Continuar editando
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={confirmPendingNavigation}
+          >
+            Sair sem salvar
           </Button>
         </DialogActions>
       </Dialog>
