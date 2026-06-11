@@ -8,10 +8,7 @@ import {
 } from "../services/gameHelpers";
 
 export function GameHeader({ game }: { game: Game }) {
-  const score =
-    game.scoreHome === null || game.scoreAway === null
-      ? "Placar ainda não informado"
-      : `${game.scoreHome} x ${game.scoreAway}`;
+  const hasScore = game.scoreHome !== null && game.scoreAway !== null;
 
   return (
     <Paper sx={{ p: 2 }}>
@@ -42,22 +39,22 @@ export function GameHeader({ game }: { game: Game }) {
           justifyContent="space-between"
           gap={{ xs: 0.75, sm: 1.25 }}
         >
-          <TeamName name={game.teamHome} />
+          <TeamName name={game.teamHome} score={game.scoreHome} />
           <Typography
-            color="text.secondary"
-            fontWeight={900}
+            color={hasScore ? "primary.main" : "text.secondary"}
+            fontWeight={950}
             sx={{
               flex: "0 0 auto",
+              fontSize: hasScore ? 28 : 18,
               lineHeight: 1,
               textAlign: "center",
             }}
           >
             x
           </Typography>
-          <TeamName name={game.teamAway} align="right" />
+          <TeamName name={game.teamAway} align="right" score={game.scoreAway} />
         </Stack>
 
-        <Typography color="text.secondary">{score}</Typography>
         <Typography color="text.secondary">
           {formatGameDate(game.startsAt)}
         </Typography>
@@ -69,9 +66,11 @@ export function GameHeader({ game }: { game: Game }) {
 function TeamName({
   name,
   align = "left",
+  score,
 }: {
   name: string;
   align?: "left" | "right";
+  score: number | null;
 }) {
   const isRight = align === "right";
 
@@ -79,7 +78,7 @@ function TeamName({
     <Stack
       direction={{ xs: "row", sm: isRight ? "row-reverse" : "row" }}
       alignItems="center"
-      gap={1}
+      gap={{ xs: 1.25, sm: 1.5 }}
       sx={{
         flex: "1 1 0",
         justifyContent: {
@@ -104,6 +103,19 @@ function TeamName({
       >
         {name}
       </Typography>
+      {score !== null && (
+        <Typography
+          variant="h5"
+          color="primary.main"
+          fontWeight={950}
+          sx={{
+            lineHeight: 1,
+            mx: { xs: 0.5, sm: 1 },
+          }}
+        >
+          {score}
+        </Typography>
+      )}
     </Stack>
   );
 }

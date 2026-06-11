@@ -122,10 +122,7 @@ export function GuessesPage() {
       const previousGuesses = queryClient.getQueryData<GuessesResponse>([
         "guesses-me",
       ]);
-      const previousGames = queryClient.getQueryData<GamesResponse>([
-        "games",
-        "scheduled",
-      ]);
+      const previousGames = queryClient.getQueryData<GamesResponse>(["games"]);
 
       queryClient.setQueryData<GuessesResponse>(["guesses-me"], (current) =>
         current
@@ -143,27 +140,25 @@ export function GuessesPage() {
             }
           : current,
       );
-      queryClient.setQueryData<GamesResponse>(
-        ["games", "scheduled"],
-        (current) =>
-          current
-            ? {
-                ...current,
-                games: current.games.map((game) =>
-                  game.id === payload.gameId && game.myGuess
-                    ? {
-                        ...game,
-                        myGuess: {
-                          ...game.myGuess,
-                          guessAway: payload.guessAway,
-                          guessHome: payload.guessHome,
-                          points: null,
-                        },
-                      }
-                    : game,
-                ),
-              }
-            : current,
+      queryClient.setQueryData<GamesResponse>(["games"], (current) =>
+        current
+          ? {
+              ...current,
+              games: current.games.map((game) =>
+                game.id === payload.gameId && game.myGuess
+                  ? {
+                      ...game,
+                      myGuess: {
+                        ...game.myGuess,
+                        guessAway: payload.guessAway,
+                        guessHome: payload.guessHome,
+                        points: null,
+                      },
+                    }
+                  : game,
+              ),
+            }
+          : current,
       );
       setGuessToEdit(null);
 
@@ -185,7 +180,7 @@ export function GuessesPage() {
     },
     onError: (err: any, _payload, context) => {
       queryClient.setQueryData(["guesses-me"], context?.previousGuesses);
-      queryClient.setQueryData(["games", "scheduled"], context?.previousGames);
+      queryClient.setQueryData(["games"], context?.previousGames);
       setGuessToEdit(guessToEdit);
       showToast(
         err.response?.data?.message ?? "Não foi possível atualizar o palpite.",

@@ -4,7 +4,7 @@ import {
   nextPathAfterAuth,
   normalizeInviteCode,
   shouldAutoJoinInvite,
-} from "./inviteFlow";
+} from "../inviteFlow";
 
 describe("inviteFlow", () => {
   it("normaliza código de convite antes de usar", () => {

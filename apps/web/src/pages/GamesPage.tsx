@@ -52,8 +52,11 @@ export function GamesPage() {
   const { showToast } = useToast();
   const [selectedStage, setSelectedStage] = useState("group");
   const { data, error, isLoading } = useQuery<{ games: Game[] }>({
-    queryKey: ["games", "scheduled"],
-    queryFn: async () => (await api.get("/games?status=scheduled")).data,
+    queryKey: ["games"],
+    queryFn: async () => (await api.get("/games")).data,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
   const stageTabs = useMemo(
     () => buildStageTabs(data?.games ?? []),
@@ -136,10 +139,7 @@ export function GamesPage() {
         queryClient.cancelQueries({ queryKey: ["guesses-me"] }),
       ]);
 
-      const previousGames = queryClient.getQueryData<GamesResponse>([
-        "games",
-        "scheduled",
-      ]);
+      const previousGames = queryClient.getQueryData<GamesResponse>(["games"]);
       const previousGuesses = queryClient.getQueryData<GuessesResponse>([
         "guesses-me",
       ]);
@@ -155,19 +155,17 @@ export function GamesPage() {
         points: game?.myGuess?.points ?? null,
       };
 
-      queryClient.setQueryData<GamesResponse>(
-        ["games", "scheduled"],
-        (current) =>
-          current
-            ? {
-                ...current,
-                games: current.games.map((item) =>
-                  item.id === payload.gameId
-                    ? { ...item, myGuess: optimisticGuess }
-                    : item,
-                ),
-              }
-            : current,
+      queryClient.setQueryData<GamesResponse>(["games"], (current) =>
+        current
+          ? {
+              ...current,
+              games: current.games.map((item) =>
+                item.id === payload.gameId
+                  ? { ...item, myGuess: optimisticGuess }
+                  : item,
+              ),
+            }
+          : current,
       );
       queryClient.setQueryData<GuessesResponse>(["guesses-me"], (current) => {
         if (!current) {
@@ -192,26 +190,24 @@ export function GamesPage() {
       return { previousGames, previousGuesses };
     },
     onSuccess: ({ data }, payload) => {
-      queryClient.setQueryData<GamesResponse>(
-        ["games", "scheduled"],
-        (current) =>
-          current
-            ? {
-                ...current,
-                games: current.games.map((game) =>
-                  game.id === payload.gameId
-                    ? { ...game, myGuess: data.guess }
-                    : game,
-                ),
-              }
-            : current,
+      queryClient.setQueryData<GamesResponse>(["games"], (current) =>
+        current
+          ? {
+              ...current,
+              games: current.games.map((game) =>
+                game.id === payload.gameId
+                  ? { ...game, myGuess: data.guess }
+                  : game,
+              ),
+            }
+          : current,
       );
       if (!payload.silent) {
         showToast("Palpite salvo com sucesso!", "success");
       }
     },
     onError: (err: any, _payload, context) => {
-      queryClient.setQueryData(["games", "scheduled"], context?.previousGames);
+      queryClient.setQueryData(["games"], context?.previousGames);
       queryClient.setQueryData(["guesses-me"], context?.previousGuesses);
       showToast(
         err.response?.data?.message ?? "Não foi possível salvar o palpite.",
@@ -357,14 +353,6 @@ export function GamesPage() {
           <Stack direction="row" gap={1} alignItems="center">
             <Button
               size="small"
-              variant="contained"
-              disabled={!pendingDrafts.length || savingGameIds.size > 0}
-              onClick={saveAllGuesses}
-            >
-              Salvar tudo ({pendingDrafts.length})
-            </Button>
-            <Button
-              size="small"
               variant={allExpanded ? "contained" : "outlined"}
               onClick={() => setExpandedGroups(new Set(groupLabels))}
             >
@@ -488,6 +476,24 @@ export function GamesPage() {
           </AccordionDetails>
         </Accordion>
       ))}
+
+      {pendingDrafts.length > 0 && (
+        <Button
+          size="large"
+          variant="contained"
+          disabled={savingGameIds.size > 0}
+          onClick={saveAllGuesses}
+          sx={{
+            bottom: { xs: 82, md: 28 },
+            boxShadow: 5,
+            position: "fixed",
+            right: { xs: 16, md: 32 },
+            zIndex: 8,
+          }}
+        >
+          Salvar tudo ({pendingDrafts.length})
+        </Button>
+      )}
     </Stack>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatGameDate } from "./gameHelpers";
+import { formatGameDate } from "../gameHelpers";
 
 describe("formatGameDate", () => {
   it("formata sempre no fuso de São Paulo", () => {

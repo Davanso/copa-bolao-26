@@ -34,6 +34,12 @@ const nav = [
 const lastRouteStorageKey = "bolao.lastRoute";
 const onboardingStoragePrefix = "bolao.onboarding.seen";
 const unsavedGuessesStorageKey = "bolao.unsavedGuesses";
+const unsavedStorageKeys = [
+  unsavedGuessesStorageKey,
+  "bolao.unsaved.groupName",
+  "bolao.unsaved.prize",
+  "bolao.unsaved.scoring",
+];
 
 type OnboardingContent = {
   id: string;
@@ -243,11 +249,7 @@ export function AppLayout() {
   }
 
   function goToNav(path: string) {
-    if (
-      location.pathname === "/" &&
-      path !== "/" &&
-      localStorage.getItem(unsavedGuessesStorageKey) === "true"
-    ) {
+    if (path !== location.pathname && hasUnsavedChanges()) {
       setPendingNavigationPath(path);
       return;
     }
@@ -261,9 +263,28 @@ export function AppLayout() {
     }
 
     localStorage.setItem(unsavedGuessesStorageKey, "false");
+    for (const key of unsavedStorageKeys) {
+      localStorage.setItem(key, "false");
+    }
     navigate(pendingNavigationPath, { state: { skipRouteRestore: true } });
     setPendingNavigationPath(null);
   }
+
+  useEffect(() => {
+    function confirmBeforeUnload(event: BeforeUnloadEvent) {
+      if (!hasUnsavedChanges()) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", confirmBeforeUnload);
+
+    return () =>
+      window.removeEventListener("beforeunload", confirmBeforeUnload);
+  }, []);
 
   function closeWelcome() {
     if (user && openOnboarding) {
@@ -382,11 +403,11 @@ export function AppLayout() {
         onClose={() => setPendingNavigationPath(null)}
         fullWidth
       >
-        <DialogTitle>Sair sem salvar palpites?</DialogTitle>
+        <DialogTitle>Sair sem salvar altera??es?</DialogTitle>
         <DialogContent>
           <Typography color="text.secondary">
-            Você tem palpites preenchidos que ainda não foram salvos. Se sair
-            agora, essas alterações serão perdidas.
+            Voc? tem altera??es preenchidas que ainda n?o foram salvas. Se sair
+            agora, essas altera??es ser?o perdidas.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2.5, pt: 1 }}>
@@ -425,6 +446,10 @@ export function AppLayout() {
       )}
     </Box>
   );
+}
+
+function hasUnsavedChanges() {
+  return unsavedStorageKeys.some((key) => localStorage.getItem(key) === "true");
 }
 
 function WelcomeStep({

@@ -1,4 +1,8 @@
-﻿import type { Game, GameStatus } from "../../db/types.js";
+import type { Game, GameStatus } from "../../db/types.js";
+import {
+  officialGamesAsMocks,
+  officialStartsAtForGame,
+} from "./official-schedule.js";
 
 const providerUrl =
   process.env.WORLD_CUP_API_URL ?? "https://worldcup26.ir/get/games";
@@ -31,6 +35,7 @@ const teamTranslations: Record<string, string> = {
   England: "Inglaterra",
   France: "França",
   Germany: "Alemanha",
+  Ghana: "Gana",
   Haiti: "Haiti",
   Iran: "Irã",
   Iraq: "Iraque",
@@ -41,9 +46,12 @@ const teamTranslations: Record<string, string> = {
   Netherlands: "Holanda",
   "New Zealand": "Nova Zelândia",
   Norway: "Noruega",
+  Panama: "Panam?",
   Paraguay: "Paraguai",
   Portugal: "Portugal",
   Qatar: "Catar",
+  "DR Congo": "RD Congo",
+  "Democratic Republic of the Congo": "RD Congo",
   "Saudi Arabia": "Arábia Saudita",
   Scotland: "Escócia",
   Senegal: "Senegal",
@@ -56,6 +64,7 @@ const teamTranslations: Record<string, string> = {
   Turkey: "Turquia",
   "United States": "Estados Unidos",
   Uruguay: "Uruguai",
+  Uzbekistan: "Uzbequist?o",
 };
 
 type WorldCupApiGame = {
@@ -114,7 +123,7 @@ function normalizeGame(game: WorldCupApiGame): Game {
   const liveMinute =
     status === "live" ? normalizeMinute(game.time_elapsed) : null;
 
-  return {
+  const normalizedGame: Game = {
     id: String(game.id),
     externalId: game._id,
     teamHome: translateTeam(game.home_team_name_en ?? game.home_team_label),
@@ -127,6 +136,12 @@ function normalizeGame(game: WorldCupApiGame): Game {
     status,
     liveMinute,
     lastLiveSyncAt: new Date().toISOString(),
+  };
+
+  return {
+    ...normalizedGame,
+    startsAt:
+      officialStartsAtForGame(normalizedGame) ?? normalizedGame.startsAt,
   };
 }
 
@@ -237,69 +252,10 @@ function fallbackGames(error: unknown) {
   }
 
   if (isDevelopment) {
-    cachedGames = mockWorldCupGames();
+    cachedGames = officialGamesAsMocks();
     cachedAt = Date.now();
     return cachedGames;
   }
 
   throw error;
-}
-
-function mockWorldCupGames(): Game[] {
-  const now = new Date();
-  const day = 24 * 60 * 60 * 1000;
-  const makeDate = (daysFromNow: number, hour: number) => {
-    const date = new Date(now.getTime() + daysFromNow * day);
-    date.setHours(hour, 0, 0, 0);
-    return date.toISOString();
-  };
-
-  return [
-    mockGame("mock-group-a-1", "México", "África do Sul", "A", makeDate(1, 16)),
-    mockGame("mock-group-a-2", "Canadá", "Brasil", "A", makeDate(2, 19)),
-    mockGame("mock-group-b-1", "Argentina", "Portugal", "B", makeDate(3, 16)),
-    mockGame("mock-group-b-2", "Japão", "Marrocos", "B", makeDate(4, 19)),
-    mockGame("mock-group-c-1", "França", "Senegal", "C", makeDate(5, 16)),
-    mockGame("mock-group-c-2", "Alemanha", "Uruguai", "C", makeDate(6, 19)),
-    mockGame(
-      "mock-r32-1",
-      "Vencedor Grupo A",
-      "2º lugar Grupo B",
-      undefined,
-      makeDate(18, 16),
-      "16 avos de final",
-    ),
-    mockGame(
-      "mock-r16-1",
-      "Vencedor Jogo 49",
-      "Vencedor Jogo 50",
-      undefined,
-      makeDate(24, 18),
-      "Oitavas de final",
-    ),
-  ];
-}
-
-function mockGame(
-  id: string,
-  teamHome: string,
-  teamAway: string,
-  groupName: string | undefined,
-  startsAt: string,
-  stage = "Fase de grupos",
-): Game {
-  return {
-    id,
-    externalId: id,
-    groupName,
-    lastLiveSyncAt: new Date().toISOString(),
-    liveMinute: null,
-    scoreAway: null,
-    scoreHome: null,
-    stage,
-    startsAt,
-    status: "scheduled",
-    teamAway,
-    teamHome,
-  };
 }

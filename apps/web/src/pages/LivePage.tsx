@@ -10,14 +10,16 @@ export function LivePage() {
   const { data, error, isLoading } = useQuery<{ liveGames: Game[] }>({
     queryKey: ["live"],
     queryFn: async () => (await api.get("/live-games")).data,
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
   return (
     <Stack gap={2}>
       <Typography variant="h4">Ao vivo</Typography>
       <Typography color="text.secondary">
-        Atualização automática a cada 30 segundos.
+        Atualização automática a cada 10 segundos.
       </Typography>
 
       {isLoading && (
@@ -37,9 +39,9 @@ export function LivePage() {
         />
       )}
 
-      <Grid container spacing={2}>
+      <Grid container spacing={2} justifyContent="center">
         {data?.liveGames.map((game) => (
-          <Grid item xs={12} md={6} key={game.id}>
+          <Grid item xs={12} md={10} lg={7} key={game.id}>
             <GameHeader game={game} />
           </Grid>
         ))}

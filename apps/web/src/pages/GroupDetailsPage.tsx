@@ -41,6 +41,9 @@ type GroupsMe = {
 };
 
 const roleLabel = { owner: "Dono", member: "Membro" };
+const unsavedGroupNameStorageKey = "bolao.unsaved.groupName";
+const unsavedPrizeStorageKey = "bolao.unsaved.prize";
+const unsavedScoringStorageKey = "bolao.unsaved.scoring";
 const defaultScoringRules: ScoringRule[] = [
   { stage: "Fase de grupos", exactPoints: 3, resultPoints: 1 },
   { stage: "16 avos de final", exactPoints: 4, resultPoints: 2 },
@@ -322,6 +325,13 @@ export function GroupDetailsPage() {
   useEffect(() => {
     setGroupName(data?.group.name ?? "");
   }, [data?.group.name]);
+
+  useEffect(() => {
+    const dirty = Boolean(data && groupName.trim() !== data.group.name);
+    localStorage.setItem(unsavedGroupNameStorageKey, dirty ? "true" : "false");
+
+    return () => localStorage.setItem(unsavedGroupNameStorageKey, "false");
+  }, [data, groupName]);
 
   return (
     <Stack gap={2.5}>
@@ -614,6 +624,27 @@ function PrizeCard({
     () => rules.reduce((sum, rule) => sum + Number(rule.percentage), 0),
     [rules],
   );
+  const prizeDirty = useMemo(() => {
+    const initialValue = String(commonContributionValue(members));
+    const initialRules = group.prizeRules?.length
+      ? group.prizeRules
+      : [
+          { position: 1, percentage: 70 },
+          { position: 2, percentage: 20 },
+          { position: 3, percentage: 10 },
+        ];
+
+    return (
+      perMemberValue !== initialValue ||
+      JSON.stringify(rules) !== JSON.stringify(initialRules)
+    );
+  }, [group.prizeRules, members, perMemberValue, rules]);
+
+  useEffect(() => {
+    localStorage.setItem(unsavedPrizeStorageKey, prizeDirty ? "true" : "false");
+
+    return () => localStorage.setItem(unsavedPrizeStorageKey, "false");
+  }, [prizeDirty]);
 
   function updateRule(index: number, field: keyof PrizeRule, value: number) {
     setRules((current) =>
@@ -692,27 +723,35 @@ function PrizeCard({
                     <>
                       <TextField
                         label="Posição"
-                        type="number"
                         value={rule.position}
                         disabled={saving}
+                        inputProps={{
+                          inputMode: "numeric",
+                          maxLength: 2,
+                          pattern: "[0-9]*",
+                        }}
                         onChange={(event) =>
                           updateRule(
                             index,
                             "position",
-                            Number(event.target.value),
+                            inputToLimit(event.target.value, 20),
                           )
                         }
                       />
                       <TextField
                         label="Percentual"
-                        type="number"
                         value={rule.percentage}
                         disabled={saving}
+                        inputProps={{
+                          inputMode: "numeric",
+                          maxLength: 3,
+                          pattern: "[0-9]*",
+                        }}
                         onChange={(event) =>
                           updateRule(
                             index,
                             "percentage",
-                            Number(event.target.value),
+                            inputToLimit(event.target.value, 100),
                           )
                         }
                       />
@@ -804,10 +843,25 @@ function ScoringRulesCard({
   const visibleRules = rules.filter((rule) =>
     selectedRuleTab.stages.includes(rule.stage),
   );
+  const scoringDirty = useMemo(
+    () =>
+      JSON.stringify(rules) !==
+      JSON.stringify(mergeScoringRules(group.scoringRules)),
+    [group.scoringRules, rules],
+  );
 
   useEffect(() => {
     setRules(mergeScoringRules(group.scoringRules));
   }, [group.scoringRules]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      unsavedScoringStorageKey,
+      scoringDirty ? "true" : "false",
+    );
+
+    return () => localStorage.setItem(unsavedScoringStorageKey, "false");
+  }, [scoringDirty]);
 
   function updateRule(
     stage: string,
@@ -872,30 +926,36 @@ function ScoringRulesCard({
                     <TextField
                       fullWidth
                       label="Placar exato"
-                      type="number"
                       value={rule.exactPoints}
                       disabled={!isOwner || saving}
-                      inputProps={{ min: 0, max: 100 }}
+                      inputProps={{
+                        inputMode: "numeric",
+                        maxLength: 3,
+                        pattern: "[0-9]*",
+                      }}
                       onChange={(event) =>
                         updateRule(
                           rule.stage,
                           "exactPoints",
-                          Number(event.target.value),
+                          inputToLimit(event.target.value, 100),
                         )
                       }
                     />
                     <TextField
                       fullWidth
                       label="Resultado"
-                      type="number"
                       value={rule.resultPoints}
                       disabled={!isOwner || saving}
-                      inputProps={{ min: 0, max: 100 }}
+                      inputProps={{
+                        inputMode: "numeric",
+                        maxLength: 3,
+                        pattern: "[0-9]*",
+                      }}
                       onChange={(event) =>
                         updateRule(
                           rule.stage,
                           "resultPoints",
-                          Number(event.target.value),
+                          inputToLimit(event.target.value, 100),
                         )
                       }
                     />
@@ -927,4 +987,14 @@ function mergeScoringRules(rules?: ScoringRule[]) {
     ...rule,
     ...rulesByStage.get(rule.stage),
   }));
+}
+
+function inputToLimit(value: string, max: number) {
+  const number = Number(value.replace(/\D/g, ""));
+
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+
+  return Math.min(number, max);
 }
