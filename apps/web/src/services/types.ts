@@ -1,4 +1,12 @@
-﻿export type User = { id: string; username: string; role: "user" | "admin" };
+export type User = {
+  avatarUrl?: string | null;
+  email?: string | null;
+  firstName?: string | null;
+  id: string;
+  lastName?: string | null;
+  role: "user" | "admin";
+  username: string;
+};
 
 export type Game = {
   id: string;

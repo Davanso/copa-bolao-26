@@ -77,7 +77,7 @@ app.use(
     },
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 app.use("/health", healthRouter);
 app.use("/auth", authRouter);

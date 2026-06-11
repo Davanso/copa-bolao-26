@@ -34,6 +34,9 @@ export function LoginPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [feedback, setFeedback] = useState<{
@@ -56,7 +59,10 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      const { data } = await api.post(`/auth/${mode}`, { username, password });
+      const payload = isRegister
+        ? { email, firstName, lastName, password, username }
+        : { identifier: username, password };
+      const { data } = await api.post(`/auth/${mode}`, payload);
       const successMessage =
         mode === "login"
           ? "Login realizado com sucesso!"
@@ -102,7 +108,9 @@ export function LoginPage() {
                 {isRegister ? "Criar conta" : "Entrar"}
               </Typography>
               <Typography color="text.secondary">
-                Use apenas usuário e senha. Sem e-mail, sem burocracia.
+                {isRegister
+                  ? "Use nome, e-mail e username para deixar o bolão com cara de turma."
+                  : "Entre com seu e-mail ou username e senha."}
               </Typography>
             </Box>
 
@@ -115,8 +123,37 @@ export function LoginPage() {
               </Alert>
             )}
 
+            {isRegister && (
+              <Stack direction={{ xs: "column", sm: "row" }} gap={1.25}>
+                <TextField
+                  fullWidth
+                  label="Nome"
+                  value={firstName}
+                  disabled={loading}
+                  onChange={(event) => setFirstName(event.target.value)}
+                />
+                <TextField
+                  fullWidth
+                  label="Sobrenome"
+                  value={lastName}
+                  disabled={loading}
+                  onChange={(event) => setLastName(event.target.value)}
+                />
+              </Stack>
+            )}
+            {isRegister && (
+              <TextField
+                label="E-mail"
+                type="email"
+                value={email}
+                autoComplete="email"
+                disabled={loading}
+                onChange={(event) => setEmail(event.target.value)}
+                helperText="Opcional agora, útil para recuperar sua conta depois."
+              />
+            )}
             <TextField
-              label="Usuário"
+              label={isRegister ? "Username" : "E-mail ou username"}
               value={username}
               autoComplete="username"
               disabled={loading}

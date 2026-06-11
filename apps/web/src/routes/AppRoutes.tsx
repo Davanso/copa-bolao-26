@@ -10,6 +10,7 @@ import { RankingPage } from "../pages/RankingPage";
 import { GroupsPage } from "../pages/GroupsPage";
 import { GroupDetailsPage } from "../pages/GroupDetailsPage";
 import { JoinGroupPage } from "../pages/JoinGroupPage";
+import { UserPage } from "../pages/UserPage";
 
 const lastRouteStorageKey = "bolao.lastRoute";
 
@@ -37,6 +38,7 @@ export function AppRoutes() {
         <Route path="/ranking" element={<RankingPage />} />
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/groups/:groupId" element={<GroupDetailsPage />} />
+        <Route path="/user" element={<UserPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

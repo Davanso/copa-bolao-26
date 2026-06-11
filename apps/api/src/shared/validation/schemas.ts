@@ -5,6 +5,32 @@ export const credentialsSchema = z.object({
   password: z.string().min(6).max(72),
 });
 
+export const registerSchema = z.object({
+  email: z.string().email().max(120).optional().or(z.literal("")),
+  firstName: z.string().min(2).max(40).optional().or(z.literal("")),
+  lastName: z.string().min(2).max(60).optional().or(z.literal("")),
+  password: z.string().min(6).max(72),
+  username: z.string().min(3).max(24),
+});
+
+export const loginSchema = z.object({
+  identifier: z.string().min(3).max(120),
+  password: z.string().min(6).max(72),
+});
+
+export const profileSchema = z.object({
+  avatarUrl: z.string().max(800_000).optional().or(z.literal("")),
+  email: z.string().email().max(120).optional().or(z.literal("")),
+  firstName: z.string().min(2).max(40).optional().or(z.literal("")),
+  lastName: z.string().min(2).max(60).optional().or(z.literal("")),
+  username: z.string().min(3).max(24),
+});
+
+export const passwordSchema = z.object({
+  currentPassword: z.string().min(6).max(72),
+  nextPassword: z.string().min(6).max(72),
+});
+
 export const guessSchema = z.object({
   guessHome: z.coerce.number().int().min(0).max(30),
   guessAway: z.coerce.number().int().min(0).max(30),

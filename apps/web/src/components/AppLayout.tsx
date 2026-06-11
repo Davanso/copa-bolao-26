@@ -347,6 +347,7 @@ export function AppLayout() {
               onClick={(event) => setAnchorEl(event.currentTarget)}
             >
               <Avatar
+                src={user?.avatarUrl ?? undefined}
                 sx={{
                   bgcolor: "secondary.main",
                   color: "secondary.contrastText",
@@ -361,6 +362,14 @@ export function AppLayout() {
               onClose={() => setAnchorEl(null)}
             >
               <MenuItem disabled>{user?.username}</MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setAnchorEl(null);
+                  navigate("/user", { state: { skipRouteRestore: true } });
+                }}
+              >
+                Meu perfil
+              </MenuItem>
               <MenuItem onClick={handleLogout}>
                 <Box component="span" sx={{ mr: 1 }}>
                   ↪

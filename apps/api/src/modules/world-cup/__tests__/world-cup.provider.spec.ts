@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { apiLocalDateToBrazilInstant } from "../../../../api/src/modules/world-cup/world-cup.provider.js";
+import { apiLocalDateToBrazilInstant } from "../world-cup.provider.js";
 import {
   officialGames,
   officialStartsAtForGame,
-} from "../../../../api/src/modules/world-cup/official-schedule.js";
+} from "../official-schedule.js";
 
 describe("apiLocalDateToBrazilInstant", () => {
   it("converte horário da API para o instante exibido no Brasil", () => {
@@ -27,7 +27,7 @@ describe("apiLocalDateToBrazilInstant", () => {
 });
 
 describe("officialStartsAtForGame", () => {
-  it.each(officialGames)(
+  it.each(officialGames.map((officialGame) => [officialGame] as const))(
     "retorna o horário oficial para $home x $away",
     (officialGame) => {
       const startsAt = officialStartsAtForGame({
