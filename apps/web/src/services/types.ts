@@ -32,6 +32,7 @@ export type Guess = {
 };
 
 export type RankingItem = {
+  avatarUrl?: string | null;
   userId: string;
   username: string;
   totalPoints: number;
@@ -54,6 +55,7 @@ export type ScoringRule = {
 };
 
 export type Group = {
+  imageUrl?: string | null;
   id: string;
   name: string;
   description?: string;

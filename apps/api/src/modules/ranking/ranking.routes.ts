@@ -59,6 +59,7 @@ export async function buildRanking(userIds?: string[], groupId?: string) {
       });
 
       return {
+        avatarUrl: user.avatarUrl,
         userId: user.id,
         username: user.username,
         totalPoints: pointsByGuess.reduce((sum, points) => sum + points, 0),

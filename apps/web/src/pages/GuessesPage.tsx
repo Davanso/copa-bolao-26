@@ -236,7 +236,14 @@ export function GuessesPage() {
       )}
 
       {stageTabs.length > 0 && (
-        <Paper sx={{ p: 1 }}>
+        <Paper
+          sx={{
+            border: "1px solid rgba(15, 23, 42, .08)",
+            borderRadius: 2,
+            boxShadow: "none",
+            p: 1,
+          }}
+        >
           <Tabs
             value={selectedStage}
             variant="scrollable"
@@ -259,6 +266,7 @@ export function GuessesPage() {
           key={groupName}
           expanded={expandedGroups.has(groupName)}
           TransitionProps={{ timeout: 140, unmountOnExit: true }}
+          disableGutters
           onChange={(_, expanded) => {
             setExpandedGroups((currentGroups) => {
               const nextGroups = new Set(currentGroups);
@@ -272,8 +280,25 @@ export function GuessesPage() {
               return nextGroups;
             });
           }}
+          sx={{
+            border: "1px solid rgba(15, 23, 42, .10)",
+            borderRadius: 2,
+            boxShadow: "none",
+            overflow: "hidden",
+            "&:before": { display: "none" },
+            "& + &": { mt: 1.5 },
+          }}
         >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            sx={{
+              bgcolor: "rgba(0, 156, 59, .06)",
+              borderBottom: expandedGroups.has(groupName)
+                ? "1px solid rgba(15, 23, 42, .08)"
+                : "0",
+              minHeight: 58,
+            }}
+          >
             <Stack direction="row" justifyContent="space-between" width="100%">
               <Typography variant="h6">{groupName}</Typography>
               <Typography color="text.secondary">
@@ -281,7 +306,7 @@ export function GuessesPage() {
               </Typography>
             </Stack>
           </AccordionSummary>
-          <AccordionDetails>
+          <AccordionDetails sx={{ p: 2 }}>
             <Stack gap={1.5}>
               {guesses.map((guess) => (
                 <GuessCard
@@ -323,9 +348,18 @@ function ExpandMoreIcon() {
 
 function GuessCard({ guess, onEdit }: { guess: Guess; onEdit: () => void }) {
   const locked = guess.game ? isGuessLocked(guess.game) : true;
+  const result = guessResult(guess);
 
   return (
-    <Paper sx={{ p: 2 }}>
+    <Paper
+      variant="outlined"
+      sx={{
+        borderColor: "rgba(15, 23, 42, .10)",
+        borderRadius: 2,
+        boxShadow: "none",
+        p: 2,
+      }}
+    >
       <Stack gap={1}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
@@ -340,6 +374,7 @@ function GuessCard({ guess, onEdit }: { guess: Guess; onEdit: () => void }) {
             <TeamWithFlag name={guess.game?.teamAway ?? "Fora"} />
           </Stack>
           <Stack direction="row" gap={1} alignItems="center">
+            {result && <Chip label={result.label} color={result.color} />}
             <Chip
               label={guess.points == null ? "Pendente" : `${guess.points} pts`}
               color={guess.points === 3 ? "primary" : "default"}
@@ -374,6 +409,35 @@ function TeamWithFlag({ name }: { name: string }) {
       <Typography fontWeight={800}>{name}</Typography>
     </Stack>
   );
+}
+
+function guessResult(guess: Guess) {
+  const game = guess.game;
+
+  if (
+    !game ||
+    game.status !== "finished" ||
+    game.scoreHome === null ||
+    game.scoreAway === null
+  ) {
+    return null;
+  }
+
+  if (
+    guess.guessHome === game.scoreHome &&
+    guess.guessAway === game.scoreAway
+  ) {
+    return { color: "success" as const, label: "Cravou o placar" };
+  }
+
+  const guessedOutcome = Math.sign(guess.guessHome - guess.guessAway);
+  const realOutcome = Math.sign(game.scoreHome - game.scoreAway);
+
+  if (guessedOutcome === realOutcome) {
+    return { color: "primary" as const, label: "Acertou o resultado" };
+  }
+
+  return { color: "error" as const, label: "Errou" };
 }
 
 function EditGuessDialog({

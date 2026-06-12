@@ -131,7 +131,7 @@ export function UserPage() {
       <Paper
         sx={{
           background:
-            "linear-gradient(135deg, #881337 0%, #E11D48 54%, #2563EB 100%)",
+            "linear-gradient(135deg, #085201 0%, #036800 54%, #00bb73 100%)",
           border: "1px solid rgba(255,255,255,.22)",
           color: "common.white",
           overflow: "hidden",
@@ -164,14 +164,13 @@ export function UserPage() {
               sx={{
                 alignSelf: "flex-start",
                 bgcolor: "rgba(255,255,255,.92)",
-                color: "#881337",
+                color: "#5b5e5b",
                 fontWeight: 900,
               }}
             />
             <Typography variant="h3">Seu perfil no bolão</Typography>
             <Typography sx={{ color: "rgba(255,255,255,.82)", maxWidth: 640 }}>
-              Atualize sua foto, nome público e dados de acesso. Esta tela será
-              a referência visual para evoluirmos o restante do app.
+              Atualize sua foto, nome público e dados de acesso.
             </Typography>
           </Stack>
 
@@ -194,7 +193,7 @@ export function UserPage() {
               startIcon={<CameraIcon />}
               sx={{
                 bgcolor: "rgba(255,255,255,.92)",
-                color: "#881337",
+                color: "#5b5e5b",
                 fontWeight: 900,
                 "&:hover": { bgcolor: "common.white" },
               }}
@@ -256,6 +255,11 @@ export function UserPage() {
                   <TextField
                     fullWidth
                     required
+                    helperText={
+                      profile.username !== user?.username
+                        ? "Este será seu novo username para entrar no app."
+                        : "Você pode usar este username ou seu e-mail no login."
+                    }
                     label="Username"
                     value={profile.username}
                     onChange={(event) =>

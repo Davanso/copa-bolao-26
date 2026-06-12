@@ -239,7 +239,10 @@ function PodiumCard({
     >
       <Stack alignItems="center" gap={1.25} sx={{ p: 2 }}>
         <Typography fontSize={34}>{config.emoji}</Typography>
-        <Avatar sx={{ bgcolor: config.accent, color: "#10203f" }}>
+        <Avatar
+          src={item.avatarUrl ?? undefined}
+          sx={{ bgcolor: config.accent, color: "#10203f" }}
+        >
           {initials(item.username)}
         </Avatar>
         <Box textAlign="center">
@@ -361,7 +364,10 @@ function RankingRow({
       >
         <Stack direction="row" gap={1.5} alignItems="center">
           <Chip label={`#${position}`} />
-          <Avatar sx={{ bgcolor: "primary.main" }}>
+          <Avatar
+            src={item.avatarUrl ?? undefined}
+            sx={{ bgcolor: "primary.main" }}
+          >
             {initials(item.username)}
           </Avatar>
           <Typography variant="h6">{item.username}</Typography>

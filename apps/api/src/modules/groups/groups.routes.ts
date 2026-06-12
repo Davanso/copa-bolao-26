@@ -13,12 +13,21 @@ import { buildRanking } from "../ranking/ranking.routes.js";
 
 export const groupsRouter = Router();
 
+const memberUserSelect = {
+  avatarUrl: true,
+  createdAt: true,
+  id: true,
+  role: true,
+  username: true,
+} as const;
+
 groupsRouter.post("/", requireAuth, async (req, res) => {
   const body = groupSchema.parse(req.body);
   const group = await prisma.bolaoGroup.create({
     data: {
       name: body.name,
       description: body.description,
+      imageUrl: body.imageUrl || null,
       ownerUserId: req.user!.id,
       inviteCode: await generateUniqueInviteCode(),
       members: {
@@ -111,6 +120,7 @@ groupsRouter.get("/invite/:inviteCode", async (req, res) => {
       description: group.description,
       id: group.id,
       inviteCode: group.inviteCode,
+      imageUrl: group.imageUrl,
       memberCount: group._count.members,
       name: group.name,
       ownerUsername: group.owner.username,
@@ -127,7 +137,7 @@ groupsRouter.get("/:groupId", requireAuth, async (req, res) => {
     where: { groupId: group.id },
     include: {
       user: {
-        select: { id: true, username: true, role: true, createdAt: true },
+        select: memberUserSelect,
       },
     },
     orderBy: { joinedAt: "asc" },
@@ -184,6 +194,7 @@ groupsRouter.put("/:groupId", requireAuth, async (req, res) => {
     data: {
       name: body.name,
       description: body.description,
+      imageUrl: body.imageUrl || null,
     },
     include: {
       prizeRules: { orderBy: { position: "asc" } },
@@ -250,7 +261,7 @@ groupsRouter.put("/:groupId/symbolic-prize", requireAuth, async (req, res) => {
     where: { groupId },
     include: {
       user: {
-        select: { id: true, username: true, role: true, createdAt: true },
+        select: memberUserSelect,
       },
     },
     orderBy: { joinedAt: "asc" },

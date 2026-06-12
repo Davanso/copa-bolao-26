@@ -53,6 +53,7 @@ model BolaoGroup {
   id                 String           @id @default(uuid())
   name               String
   description        String?
+  imageUrl           String?          @map("image_url")
   ownerUserId        String           @map("owner_user_id")
   inviteCode         String           @unique @map("invite_code")
   symbolicPrizeTotal Int              @default(0) @map("symbolic_prize_total")

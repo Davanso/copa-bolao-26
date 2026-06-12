@@ -1,4 +1,4 @@
-import { Alert, Grid, Stack, Typography } from "@mui/material";
+import { Alert, Grid, Paper, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
@@ -42,7 +42,17 @@ export function LivePage() {
       <Grid container spacing={2} justifyContent="center">
         {data?.liveGames.map((game) => (
           <Grid item xs={12} md={10} lg={7} key={game.id}>
-            <GameHeader game={game} />
+            <Paper
+              variant="outlined"
+              sx={{
+                borderColor: "rgba(15, 23, 42, .10)",
+                borderRadius: 2,
+                boxShadow: "none",
+                p: { xs: 1.5, sm: 2 },
+              }}
+            >
+              <GameHeader game={game} />
+            </Paper>
           </Grid>
         ))}
       </Grid>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Alert,
+  Avatar,
   Button,
   Chip,
   Grid,
@@ -165,7 +166,25 @@ export function GroupsPage() {
             <Paper sx={{ p: 2.5 }}>
               <Stack gap={1.5}>
                 <Stack direction="row" justifyContent="space-between" gap={2}>
-                  <Typography variant="h6">{group.name}</Typography>
+                  <Stack direction="row" alignItems="center" gap={1.5} minWidth={0}>
+                    <Avatar
+                      src={group.imageUrl ?? undefined}
+                      variant="rounded"
+                      sx={{
+                        bgcolor: "primary.main",
+                        borderRadius: 2,
+                        color: "primary.contrastText",
+                        fontWeight: 950,
+                        height: 48,
+                        width: 48,
+                      }}
+                    >
+                      {group.name.slice(0, 2).toUpperCase()}
+                    </Avatar>
+                    <Typography variant="h6" sx={{ minWidth: 0 }}>
+                      {group.name}
+                    </Typography>
+                  </Stack>
                   <Chip label={roleLabel[group.memberRole ?? ""] ?? "Membro"} />
                 </Stack>
                 <Typography color="text.secondary">

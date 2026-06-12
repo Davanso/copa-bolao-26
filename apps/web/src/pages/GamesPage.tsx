@@ -390,7 +390,14 @@ export function GamesPage() {
       )}
 
       {stageTabs.length > 0 && (
-        <Paper sx={{ p: 1 }}>
+        <Paper
+          sx={{
+            border: "1px solid rgba(15, 23, 42, .08)",
+            borderRadius: 2,
+            boxShadow: "none",
+            p: 1,
+          }}
+        >
           <Tabs
             value={selectedStage}
             variant="scrollable"
@@ -413,6 +420,7 @@ export function GamesPage() {
           key={groupName}
           expanded={expandedGroups.has(groupName)}
           TransitionProps={{ timeout: 140, unmountOnExit: true }}
+          disableGutters
           onChange={(_, expanded) => {
             setExpandedGroups((currentGroups) => {
               const nextGroups = new Set(currentGroups);
@@ -426,8 +434,25 @@ export function GamesPage() {
               return nextGroups;
             });
           }}
+          sx={{
+            border: "1px solid rgba(15, 23, 42, .10)",
+            borderRadius: 2,
+            boxShadow: "none",
+            overflow: "hidden",
+            "&:before": { display: "none" },
+            "& + &": { mt: 1.5 },
+          }}
         >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            sx={{
+              bgcolor: "rgba(0, 156, 59, .06)",
+              borderBottom: expandedGroups.has(groupName)
+                ? "1px solid rgba(15, 23, 42, .08)"
+                : "0",
+              minHeight: 58,
+            }}
+          >
             <Stack
               direction="row"
               justifyContent="space-between"
@@ -440,11 +465,20 @@ export function GamesPage() {
               </Typography>
             </Stack>
           </AccordionSummary>
-          <AccordionDetails>
+          <AccordionDetails sx={{ p: 2 }}>
             <Grid container spacing={2}>
               {games.map((game) => (
                 <Grid item xs={12} lg={6} key={game.id}>
-                  <Paper sx={{ p: 1.25 }}>
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      bgcolor: "background.paper",
+                      borderColor: "rgba(15, 23, 42, .10)",
+                      borderRadius: 2,
+                      boxShadow: "none",
+                      p: { xs: 1.5, sm: 2 },
+                    }}
+                  >
                     <GameHeader game={game} />
                     <GuessForm
                       draft={

@@ -43,8 +43,9 @@ export const resultSchema = z.object({
 });
 
 export const groupSchema = z.object({
-  name: z.string().min(3).max(48),
   description: z.string().max(160).nullish(),
+  imageUrl: z.string().max(800_000).optional().or(z.literal("")),
+  name: z.string().min(3).max(48),
 });
 
 export const joinGroupSchema = z.object({

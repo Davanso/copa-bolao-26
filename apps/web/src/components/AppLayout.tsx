@@ -15,6 +15,7 @@ import {
   MenuItem,
   Paper,
   Stack,
+  SvgIcon,
   Typography,
   useMediaQuery,
 } from "@mui/material";
@@ -25,11 +26,11 @@ import { useToast } from "../hooks/useToast";
 import logo from "../assets/logo-fifa.webp";
 
 const nav = [
-  { label: "Jogos", path: "/", icon: "⚽" },
-  { label: "Ao vivo", path: "/live", icon: "🔥" },
-  { label: "Palpites", path: "/guesses", icon: "🎯" },
-  { label: "Ranking", path: "/ranking", icon: "🏆" },
-  { label: "Grupos", path: "/groups", icon: "👥" },
+  { label: "Jogos", path: "/", icon: "ball" },
+  { label: "Ao vivo", path: "/live", icon: "live" },
+  { label: "Palpites", path: "/guesses", icon: "target" },
+  { label: "Ranking", path: "/ranking", icon: "trophy" },
+  { label: "Grupos", path: "/groups", icon: "group" },
 ];
 const lastRouteStorageKey = "bolao.lastRoute";
 const onboardingStoragePrefix = "bolao.onboarding.seen";
@@ -182,10 +183,50 @@ const onboardingByPage: OnboardingContent[] = [
   },
 ];
 
+const iconPaths = {
+  ball: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.8 8.2 3.2-2.1 3.2 2.1-1.1 3.7H9.9z" />
+      <path d="m9.9 11.9-3 2.2m7.2-2.2 3 2.2M12 6.1V3m-5.1 11.1-1.7 2.6m11.9-2.6 1.7 2.6M9.9 11.9l1.1 3.6h2l1.1-3.6" />
+    </>
+  ),
+  group: (
+    <>
+      <path d="M16 11a4 4 0 1 0-8 0" />
+      <path d="M5 20a7 7 0 0 1 14 0" />
+      <path d="M18 8a3 3 0 0 1 3 3M3 11a3 3 0 0 1 3-3" />
+    </>
+  ),
+  live: (
+    <>
+      <path d="M8 5v14l11-7z" />
+      <path d="M4 7a9 9 0 0 0 0 10M21 7a9 9 0 0 1 0 10" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="12" cy="12" r="1" />
+    </>
+  ),
+  trophy: (
+    <>
+      <path d="M8 4h8v5a4 4 0 0 1-8 0z" />
+      <path d="M8 6H5a3 3 0 0 0 3 3m8-3h3a3 3 0 0 1-3 3M12 13v4m-3 3h6m-8 0h10" />
+    </>
+  ),
+} as const;
+
 const NavIcon = ({ icon }: { icon: string }) => (
-  <Box component="span" aria-hidden="true" sx={{ fontSize: 20, lineHeight: 1 }}>
-    {icon}
-  </Box>
+  <SvgIcon
+    fontSize="small"
+    viewBox="0 0 24 24"
+    sx={{ fill: "none", stroke: "currentColor", strokeWidth: 1.8 }}
+  >
+    {iconPaths[icon as keyof typeof iconPaths]}
+  </SvgIcon>
 );
 
 function onboardingKey(userId: string) {
@@ -210,7 +251,7 @@ export function AppLayout() {
     queryClient.clear();
     logout();
     setAnchorEl(null);
-    showToast("Você saiu da sua conta.", "info");
+    showToast("Voc? saiu da sua conta.", "info");
     navigate("/");
   }
 
@@ -299,12 +340,18 @@ export function AppLayout() {
       <Container maxWidth="xl" sx={{ py: 2 }}>
         <Paper
           sx={{
-            p: { xs: 1.5, md: 1 },
+            background:
+              "linear-gradient(135deg, #0d4128 0%, #083a20 56%, #036b37 100%)",
+            border: "1px solid rgba(255,255,255,.18)",
+            borderRadius: 3,
+            boxShadow: "0 18px 44px rgba(7,59,34,.22)",
+            color: "white",
             mb: 3,
+            overflow: "hidden",
+            p: { xs: 1.5, md: 1 },
             position: "sticky",
             top: 8,
             zIndex: 4,
-            backdropFilter: "blur(18px)",
           }}
         >
           <Stack
@@ -318,10 +365,22 @@ export function AppLayout() {
                 component="img"
                 src={logo}
                 alt="FIFA 2026"
-                sx={{ width: 52, height: 52, objectFit: "contain" }}
+                sx={{
+                  borderRadius: 2,
+                  height: 52,
+                  objectFit: "contain",
+                  overflow: "hidden",
+                  width: 52,
+                }}
               />
               <Box>
                 <Typography variant="h5">Copa dos Palpites</Typography>
+                <Typography
+                  sx={{ color: "rgba(255,255,255,.76)" }}
+                  variant="body2"
+                >
+                  Bolão, grupos e ranking em tempo real
+                </Typography>
               </Box>
             </Stack>
 
@@ -332,9 +391,28 @@ export function AppLayout() {
                     key={item.path}
                     startIcon={<NavIcon icon={item.icon} />}
                     onClick={() => goToNav(item.path)}
-                    color={
-                      activeNavPath() === item.path ? "secondary" : "inherit"
+                    variant={
+                      activeNavPath() === item.path ? "contained" : "text"
                     }
+                    sx={{
+                      bgcolor:
+                        activeNavPath() === item.path
+                          ? "#d9f99d"
+                          : "transparent",
+                      borderRadius: 2,
+                      color:
+                        activeNavPath() === item.path
+                          ? "#12351f"
+                          : "rgba(255,255,255,.86)",
+                      fontWeight: 900,
+                      px: 1.5,
+                      "&:hover": {
+                        bgcolor:
+                          activeNavPath() === item.path
+                            ? "#bef264"
+                            : "rgba(255,255,255,.12)",
+                      },
+                    }}
                   >
                     {item.label}
                   </Button>
@@ -349,8 +427,9 @@ export function AppLayout() {
               <Avatar
                 src={user?.avatarUrl ?? undefined}
                 sx={{
-                  bgcolor: "secondary.main",
-                  color: "secondary.contrastText",
+                  bgcolor: "#d9f99d",
+                  color: "#12351f",
+                  fontWeight: 900,
                 }}
               >
                 {user?.username?.[0]?.toUpperCase() ?? "👤"}
@@ -435,7 +514,17 @@ export function AppLayout() {
 
       {!desktop && (
         <Paper
-          sx={{ position: "fixed", left: 8, right: 8, bottom: 8, zIndex: 5 }}
+          sx={{
+            border: "1px solid rgba(7,59,34,.16)",
+            borderRadius: 3,
+            bottom: 8,
+            boxShadow: "0 14px 34px rgba(7,59,34,.24)",
+            left: 8,
+            overflow: "hidden",
+            position: "fixed",
+            right: 8,
+            zIndex: 5,
+          }}
         >
           <BottomNavigation
             showLabels

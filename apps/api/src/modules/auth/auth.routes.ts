@@ -32,6 +32,14 @@ const safeUser = (user: {
   username: user.username,
 });
 
+async function matchesPassword(password: string, passwordHash: string) {
+  try {
+    return await bcrypt.compare(password, passwordHash);
+  } catch {
+    return false;
+  }
+}
+
 function nullable(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -81,7 +89,7 @@ authRouter.post("/login", async (req, res) => {
     },
   });
 
-  if (!user || !(await bcrypt.compare(body.password, user.passwordHash))) {
+  if (!user || !(await matchesPassword(body.password, user.passwordHash))) {
     throw new HttpError(401, "Credenciais inválidas");
   }
 
@@ -135,7 +143,7 @@ authRouter.put("/me/password", requireAuth, async (req, res) => {
     where: { id: req.user!.id },
   });
 
-  if (!(await bcrypt.compare(body.currentPassword, user.passwordHash))) {
+  if (!(await matchesPassword(body.currentPassword, user.passwordHash))) {
     throw new HttpError(401, "Senha atual inválida");
   }
 

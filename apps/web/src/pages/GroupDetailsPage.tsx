@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   Chip,
@@ -118,6 +119,7 @@ export function GroupDetailsPage() {
   const { showToast } = useToast();
   const [deleteGroupOpen, setDeleteGroupOpen] = useState(false);
   const [editGroupOpen, setEditGroupOpen] = useState(false);
+  const [groupImageUrl, setGroupImageUrl] = useState("");
   const [groupName, setGroupName] = useState("");
   const [memberToRemove, setMemberToRemove] = useState<GroupMember | null>(
     null,
@@ -217,6 +219,7 @@ export function GroupDetailsPage() {
     mutationFn: () =>
       api.put<{ group: Group }>(`/groups/${groupId}`, {
         description: data?.group.description,
+        imageUrl: groupImageUrl,
         name: groupName.trim(),
       }),
     onMutate: async () => {
@@ -230,11 +233,14 @@ export function GroupDetailsPage() {
       const previousGroups =
         queryClient.getQueryData<GroupsMe>(groupsMeQueryKey);
       const name = groupName.trim();
+      const imageUrl = groupImageUrl || null;
 
       queryClient.setQueryData<GroupDetails>(groupQueryKey, (current) =>
-        current ? { ...current, group: { ...current.group, name } } : current,
+        current
+          ? { ...current, group: { ...current.group, imageUrl, name } }
+          : current,
       );
-      updateGroupInList(queryClient, groupId, { name });
+      updateGroupInList(queryClient, groupId, { imageUrl, name });
       setEditGroupOpen(false);
 
       return { previousGroup, previousGroups };
@@ -324,14 +330,37 @@ export function GroupDetailsPage() {
 
   useEffect(() => {
     setGroupName(data?.group.name ?? "");
-  }, [data?.group.name]);
+    setGroupImageUrl(data?.group.imageUrl ?? "");
+  }, [data?.group.imageUrl, data?.group.name]);
 
   useEffect(() => {
-    const dirty = Boolean(data && groupName.trim() !== data.group.name);
+    const dirty = Boolean(
+      data &&
+      (groupName.trim() !== data.group.name ||
+        groupImageUrl !== (data.group.imageUrl ?? "")),
+    );
     localStorage.setItem(unsavedGroupNameStorageKey, dirty ? "true" : "false");
 
     return () => localStorage.setItem(unsavedGroupNameStorageKey, "false");
-  }, [data, groupName]);
+  }, [data, groupImageUrl, groupName]);
+
+  async function handleGroupImage(file?: File) {
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Escolha um arquivo de imagem.", "error");
+      return;
+    }
+
+    if (file.size > 450_000) {
+      showToast("Use uma imagem de até 450 KB.", "error");
+      return;
+    }
+
+    setGroupImageUrl(await fileToDataUrl(file));
+  }
 
   return (
     <Stack gap={2.5}>
@@ -367,7 +396,24 @@ export function GroupDetailsPage() {
                 justifyContent="space-between"
                 gap={2}
               >
-                <Typography variant="h4">{data.group.name}</Typography>
+                <Stack direction="row" alignItems="center" gap={2}>
+                  <Avatar
+                    src={data.group.imageUrl ?? undefined}
+                    variant="rounded"
+                    sx={{
+                      bgcolor: "primary.main",
+                      borderRadius: 3,
+                      color: "primary.contrastText",
+                      fontSize: 24,
+                      fontWeight: 950,
+                      height: 72,
+                      width: 72,
+                    }}
+                  >
+                    {data.group.name.slice(0, 2).toUpperCase()}
+                  </Avatar>
+                  <Typography variant="h4">{data.group.name}</Typography>
+                </Stack>
                 {isOwner && (
                   <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
                     <Button
@@ -375,7 +421,7 @@ export function GroupDetailsPage() {
                       disabled={updateGroup.isPending}
                       onClick={() => setEditGroupOpen(true)}
                     >
-                      Editar nome
+                      Editar grupo
                     </Button>
                     <Button
                       color="error"
@@ -419,17 +465,24 @@ export function GroupDetailsPage() {
                     justifyContent="space-between"
                   >
                     <Stack>
-                      <Typography variant="h6">
-                        {member.user.username}
-                      </Typography>
-                      <Typography color="text.secondary">
-                        Participante
-                      </Typography>
-                      <Typography color="text.secondary" variant="body2">
-                        {member.guessesCount} palpite
-                        {member.guessesCount === 1 ? "" : "s"} feito
-                        {member.guessesCount === 1 ? "" : "s"}
-                      </Typography>
+                      <Stack direction="row" alignItems="center" gap={1.5}>
+                        <Avatar src={member.user.avatarUrl ?? undefined}>
+                          {member.user.username.slice(0, 2).toUpperCase()}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="h6">
+                            {member.user.username}
+                          </Typography>
+                          <Typography color="text.secondary">
+                            Participante
+                          </Typography>
+                          <Typography color="text.secondary" variant="body2">
+                            {member.guessesCount} palpite
+                            {member.guessesCount === 1 ? "" : "s"} feito
+                            {member.guessesCount === 1 ? "" : "s"}
+                          </Typography>
+                        </Box>
+                      </Stack>
                     </Stack>
                     <Stack direction="row" alignItems="center" gap={1}>
                       <Chip label={roleLabel[member.role]} />
@@ -492,13 +545,49 @@ export function GroupDetailsPage() {
             }
             fullWidth
           >
-            <DialogTitle>Editar nome do grupo</DialogTitle>
+            <DialogTitle>Editar grupo</DialogTitle>
             <DialogContent>
               <Stack gap={2} sx={{ pt: 1 }}>
                 <Typography color="text.secondary">
-                  Escolha um nome claro para sua turma encontrar o grupo com
-                  facilidade.
+                  Escolha um nome claro e uma foto para sua turma encontrar o
+                  grupo com facilidade.
                 </Typography>
+                <Stack direction="row" alignItems="center" gap={2}>
+                  <Avatar
+                    src={groupImageUrl || undefined}
+                    variant="rounded"
+                    sx={{
+                      bgcolor: "primary.main",
+                      borderRadius: 3,
+                      height: 72,
+                      width: 72,
+                    }}
+                  >
+                    {groupName.slice(0, 2).toUpperCase()}
+                  </Avatar>
+                  <Stack gap={0.75}>
+                    <Button component="label" variant="outlined">
+                      Trocar foto
+                      <input
+                        hidden
+                        accept="image/*"
+                        type="file"
+                        onChange={(event) =>
+                          handleGroupImage(event.target.files?.[0])
+                        }
+                      />
+                    </Button>
+                    {groupImageUrl && (
+                      <Button
+                        color="inherit"
+                        size="small"
+                        onClick={() => setGroupImageUrl("")}
+                      >
+                        Remover foto
+                      </Button>
+                    )}
+                  </Stack>
+                </Stack>
                 <TextField
                   autoFocus
                   label="Nome do grupo"
@@ -521,11 +610,12 @@ export function GroupDetailsPage() {
                 disabled={
                   updateGroup.isPending ||
                   groupName.trim().length < 3 ||
-                  groupName.trim() === data.group.name
+                  (groupName.trim() === data.group.name &&
+                    groupImageUrl === (data.group.imageUrl ?? ""))
                 }
                 onClick={() => updateGroup.mutate()}
               >
-                Salvar nome
+                Salvar grupo
               </Button>
             </DialogActions>
           </Dialog>
@@ -821,6 +911,15 @@ function commonContributionValue(members: GroupMember[]) {
   );
 
   return sameForEveryone ? firstContribution : 0;
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(file);
+  });
 }
 
 function ScoringRulesCard({
