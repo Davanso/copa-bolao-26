@@ -90,7 +90,12 @@ export function LivePage() {
         loading={gamesQuery.isLoading}
         action={
           missingReminderGuesses.length > 0 ? (
-            <Button variant="contained" onClick={() => navigate("/", { state: { skipRouteRestore: true } })}>
+            <Button
+              variant="contained"
+              onClick={() =>
+                navigate("/", { state: { skipRouteRestore: true } })
+              }
+            >
               Ir para palpites
             </Button>
           ) : undefined
