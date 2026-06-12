@@ -251,7 +251,7 @@ export function AppLayout() {
     queryClient.clear();
     logout();
     setAnchorEl(null);
-    showToast("Voc? saiu da sua conta.", "info");
+    showToast("Você saiu da sua conta.", "info");
     navigate("/");
   }
 
