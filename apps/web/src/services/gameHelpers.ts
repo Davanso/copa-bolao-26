@@ -25,6 +25,12 @@ export function formatGameDate(value: string) {
   }).format(new Date(value));
 }
 
+// Considera o palpite travado se o jogo já começou ou se não está mais agendado
 export function isGuessLocked(game: Game) {
   return Date.now() >= Date.parse(game.startsAt) || game.status !== "scheduled";
+}
+
+// Retorna true se o jogo já foi encerrado e tem resultado oficial
+export function isGameFinished(game: Game) {
+  return game.status === "finished";
 }

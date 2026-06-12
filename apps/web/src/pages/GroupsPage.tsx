@@ -23,6 +23,7 @@ const roleLabel: Record<string, string> = {
   owner: "Dono",
   member: "Membro",
 };
+const lastGroupDetailsStorageKey = "bolao.groups.lastDetailsPath";
 
 type GroupsMe = {
   groups: Group[];
@@ -198,7 +199,13 @@ export function GroupsPage() {
                 <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
                   <Button
                     variant="contained"
-                    onClick={() => navigate(`/groups/${group.id}`)}
+                    onClick={() => {
+                      localStorage.setItem(
+                        lastGroupDetailsStorageKey,
+                        `/groups/${group.id}`,
+                      );
+                      navigate(`/groups/${group.id}`);
+                    }}
                   >
                     Ver detalhes
                   </Button>

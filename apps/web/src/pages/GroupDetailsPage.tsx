@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Avatar,
   Box,
@@ -12,6 +15,7 @@ import {
   Grid,
   Paper,
   Stack,
+  SvgIcon,
   Tab,
   Tabs,
   TextField,
@@ -62,6 +66,8 @@ type RevealedGroupGame = {
 };
 
 const roleLabel = { owner: "Dono", member: "Membro" };
+const lastGroupDetailsStorageKey = "bolao.groups.lastDetailsPath";
+const expandedRevealedGuessesStorageKey = "bolao.revealedGuesses.expanded";
 const unsavedGroupNameStorageKey = "bolao.unsaved.groupName";
 const unsavedPrizeStorageKey = "bolao.unsaved.prize";
 const unsavedScoringStorageKey = "bolao.unsaved.scoring";
@@ -293,6 +299,12 @@ export function GroupDetailsPage() {
     mutationFn: () => api.delete(`/groups/${groupId}`),
     onSuccess: () => {
       showToast("Grupo deletado com sucesso.", "success");
+      if (
+        localStorage.getItem(lastGroupDetailsStorageKey) ===
+        `/groups/${groupId}`
+      ) {
+        localStorage.removeItem(lastGroupDetailsStorageKey);
+      }
       queryClient.removeQueries({ queryKey: groupQueryKey });
       queryClient.setQueryData<GroupsMe>(groupsMeQueryKey, (current) =>
         current
@@ -354,6 +366,12 @@ export function GroupDetailsPage() {
   });
 
   const isOwner = data?.group.ownerUserId === user?.id;
+
+  useEffect(() => {
+    if (groupId) {
+      localStorage.setItem(lastGroupDetailsStorageKey, `/groups/${groupId}`);
+    }
+  }, [groupId]);
 
   useEffect(() => {
     setGroupName(data?.group.name ?? "");
@@ -711,6 +729,9 @@ function RevealedGuessesCard({
     () => groupRevealedGamesForTab(selectedTab),
     [selectedTab],
   );
+  const [expandedGames, setExpandedGames] = useState<Set<string>>(() =>
+    readStringSet(expandedRevealedGuessesStorageKey),
+  );
 
   useEffect(() => {
     if (!stageTabs.length) {
@@ -721,6 +742,27 @@ function RevealedGuessesCard({
       setSelectedStage(stageTabs[0].id);
     }
   }, [selectedStage, stageTabs]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      expandedRevealedGuessesStorageKey,
+      JSON.stringify([...expandedGames]),
+    );
+  }, [expandedGames]);
+
+  function toggleExpandedGame(gameId: string, expanded: boolean) {
+    setExpandedGames((currentGames) => {
+      const nextGames = new Set(currentGames);
+
+      if (expanded) {
+        nextGames.add(gameId);
+      } else {
+        nextGames.delete(gameId);
+      }
+
+      return nextGames;
+    });
+  }
 
   return (
     <Paper sx={{ p: { xs: 2, md: 2.5 } }}>
@@ -788,7 +830,13 @@ function RevealedGuessesCard({
             </Stack>
 
             {groupGames.map(({ game, guesses }) => (
-              <RevealedGameCard game={game} guesses={guesses} key={game.id} />
+              <RevealedGameCard
+                expanded={expandedGames.has(game.id)}
+                game={game}
+                guesses={guesses}
+                key={game.id}
+                onToggle={(expanded) => toggleExpandedGame(game.id, expanded)}
+              />
             ))}
           </Stack>
         ))}
@@ -798,25 +846,40 @@ function RevealedGuessesCard({
 }
 
 function RevealedGameCard({
+  expanded,
   game,
   guesses,
+  onToggle,
 }: {
+  expanded: boolean;
   game: Game;
   guesses: RevealedGroupGuess[];
+  onToggle: (expanded: boolean) => void;
 }) {
   return (
-    <Paper
-      variant="outlined"
+    <Accordion
+      disableGutters
+      expanded={expanded}
+      onChange={(_, nextExpanded) => onToggle(nextExpanded)}
       sx={{
-        borderColor: "rgba(15, 23, 42, .10)",
+        border: "1px solid rgba(15, 23, 42, .10)",
         borderRadius: 2,
         boxShadow: "none",
-        p: 2,
+        overflow: "hidden",
+        "&:before": { display: "none" },
       }}
     >
-      <Stack gap={1.5}>
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        sx={{
+          bgcolor: "rgba(0, 156, 59, .05)",
+          borderBottom: expanded ? "1px solid rgba(15, 23, 42, .08)" : "0",
+        }}
+      >
         <GameHeader game={game} />
+      </AccordionSummary>
 
+      <AccordionDetails sx={{ p: 2 }}>
         {guesses.length === 0 ? (
           <Typography color="text.secondary">
             Ninguém do grupo palpitou neste jogo.
@@ -844,9 +907,37 @@ function RevealedGameCard({
             ))}
           </Grid>
         )}
-      </Stack>
-    </Paper>
+      </AccordionDetails>
+    </Accordion>
   );
+}
+
+function ExpandMoreIcon() {
+  return (
+    <SvgIcon fontSize="medium" viewBox="0 0 24 24">
+      <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+    </SvgIcon>
+  );
+}
+
+function readStringSet(storageKey: string) {
+  try {
+    const rawValue = localStorage.getItem(storageKey);
+
+    if (!rawValue) {
+      return new Set<string>();
+    }
+
+    const parsedValue = JSON.parse(rawValue);
+
+    if (!Array.isArray(parsedValue)) {
+      return new Set<string>();
+    }
+
+    return new Set(parsedValue.filter((item) => typeof item === "string"));
+  } catch {
+    return new Set<string>();
+  }
 }
 
 type RevealedStageTab = {

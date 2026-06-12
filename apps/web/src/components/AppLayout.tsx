@@ -33,6 +33,7 @@ const nav = [
   { label: "Grupos", path: "/groups", icon: "group" },
 ];
 const lastRouteStorageKey = "bolao.lastRoute";
+const lastGroupDetailsStorageKey = "bolao.groups.lastDetailsPath";
 const onboardingStoragePrefix = "bolao.onboarding.seen";
 const unsavedGuessesStorageKey = "bolao.unsavedGuesses";
 const unsavedStorageKeys = [
@@ -290,12 +291,17 @@ export function AppLayout() {
   }
 
   function goToNav(path: string) {
-    if (path !== location.pathname && hasUnsavedChanges()) {
-      setPendingNavigationPath(path);
+    const targetPath =
+      path === "/groups"
+        ? localStorage.getItem(lastGroupDetailsStorageKey) || path
+        : path;
+
+    if (targetPath !== location.pathname && hasUnsavedChanges()) {
+      setPendingNavigationPath(targetPath);
       return;
     }
 
-    navigate(path, { state: { skipRouteRestore: true } });
+    navigate(targetPath, { state: { skipRouteRestore: true } });
   }
 
   function confirmPendingNavigation() {

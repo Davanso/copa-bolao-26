@@ -21,7 +21,7 @@ import { LoadingState } from "../components/LoadingState";
 import { GameHeader } from "../components/GameHeader";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
-import { isGuessLocked } from "../services/gameHelpers";
+import { isGameFinished, isGuessLocked } from "../services/gameHelpers";
 import type { Game, Guess } from "../services/types";
 
 const expandedGroupsStorageKey = "bolao.games.expandedGroups";
@@ -625,7 +625,9 @@ function GuessForm({
 
       {locked && (
         <Typography variant="caption" color="text.secondary">
-          Palpite bloqueado: o jogo já começou ou não está agendado.
+          {isGameFinished(game)
+            ? `Este jogo já foi encerrado. Resultado oficial: ${game.scoreHome} x ${game.scoreAway}.`
+            : "Palpite bloqueado: o jogo já começou ou não está agendado."}
         </Typography>
       )}
     </Stack>

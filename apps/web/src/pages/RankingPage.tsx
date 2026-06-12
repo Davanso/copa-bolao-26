@@ -71,9 +71,12 @@ const scoringRuleTabs = [
     stages: ["Semifinal", "Disputa de terceiro lugar", "Final"],
   },
 ];
+const selectedRankingGroupStorageKey = "bolao.ranking.selectedGroupId";
 
 export function RankingPage() {
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() =>
+    localStorage.getItem(selectedRankingGroupStorageKey),
+  );
   const groupsQuery = useQuery<{ groups: Group[] }>({
     queryKey: ["groups-me"],
     queryFn: async () => (await api.get("/groups/me")).data,
@@ -86,10 +89,26 @@ export function RankingPage() {
   });
 
   useEffect(() => {
-    if (!selectedGroupId && groupsQuery.data?.groups.length) {
-      setSelectedGroupId(groupsQuery.data.groups[0].id);
+    const groups = groupsQuery.data?.groups ?? [];
+
+    if (!groups.length) {
+      return;
+    }
+
+    const selectedStillExists = groups.some(
+      (group) => group.id === selectedGroupId,
+    );
+
+    if (!selectedGroupId || !selectedStillExists) {
+      setSelectedGroupId(groups[0].id);
     }
   }, [groupsQuery.data?.groups, selectedGroupId]);
+
+  useEffect(() => {
+    if (selectedGroupId) {
+      localStorage.setItem(selectedRankingGroupStorageKey, selectedGroupId);
+    }
+  }, [selectedGroupId]);
 
   const selectedGroup = groupsQuery.data?.groups.find(
     (group) => group.id === selectedGroupId,
