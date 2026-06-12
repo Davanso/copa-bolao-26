@@ -21,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
+import { GameHeader } from "../components/GameHeader";
 import { LoadingState } from "../components/LoadingState";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
@@ -34,6 +35,8 @@ import type {
   GroupMember,
   PrizeRule,
   ScoringRule,
+  Game,
+  User,
 } from "../services/types";
 
 type GroupDetails = {
@@ -43,6 +46,19 @@ type GroupDetails = {
 
 type GroupsMe = {
   groups: Group[];
+};
+
+type RevealedGroupGuess = {
+  id: string;
+  guessAway: number;
+  guessHome: number;
+  user: User;
+  userId: string;
+};
+
+type RevealedGroupGame = {
+  game: Game;
+  guesses: RevealedGroupGuess[];
 };
 
 const roleLabel = { owner: "Dono", member: "Membro" };
@@ -135,6 +151,13 @@ export function GroupDetailsPage() {
     queryKey: groupQueryKey,
     queryFn: async () => (await api.get(`/groups/${groupId}`)).data,
     enabled: Boolean(groupId),
+  });
+  const revealedGuesses = useQuery<{ games: RevealedGroupGame[] }>({
+    queryKey: ["group-revealed-guesses", groupId],
+    queryFn: async () =>
+      (await api.get(`/groups/${groupId}/revealed-guesses`)).data,
+    enabled: Boolean(groupId),
+    refetchInterval: 30_000,
   });
   const savePrize = useMutation({
     mutationFn: (payload: {
@@ -507,6 +530,11 @@ export function GroupDetailsPage() {
             ))}
           </Grid>
 
+          <RevealedGuessesCard
+            games={revealedGuesses.data?.games ?? []}
+            loading={revealedGuesses.isLoading}
+          />
+
           <ConfirmDialog
             open={deleteGroupOpen}
             title="Deletar grupo?"
@@ -666,6 +694,271 @@ function ConfirmDialog({
       </DialogActions>
     </Dialog>
   );
+}
+
+function RevealedGuessesCard({
+  games,
+  loading,
+}: {
+  games: RevealedGroupGame[];
+  loading: boolean;
+}) {
+  const [selectedStage, setSelectedStage] = useState("group");
+  const stageTabs = useMemo(() => buildRevealedStageTabs(games), [games]);
+  const selectedTab =
+    stageTabs.find((tab) => tab.id === selectedStage) ?? stageTabs[0];
+  const groupedGames = useMemo(
+    () => groupRevealedGamesForTab(selectedTab),
+    [selectedTab],
+  );
+
+  useEffect(() => {
+    if (!stageTabs.length) {
+      return;
+    }
+
+    if (!stageTabs.some((tab) => tab.id === selectedStage)) {
+      setSelectedStage(stageTabs[0].id);
+    }
+  }, [selectedStage, stageTabs]);
+
+  return (
+    <Paper sx={{ p: { xs: 2, md: 2.5 } }}>
+      <Stack gap={2}>
+        <Box>
+          <Typography variant="h5">Palpites liberados</Typography>
+          <Typography color="text.secondary">
+            Depois que uma partida começa, os placares dos participantes ficam
+            visíveis para todo o grupo.
+          </Typography>
+        </Box>
+
+        {loading && (
+          <LoadingState
+            title="Buscando palpites do grupo"
+            description="Estamos conferindo quais jogos já começaram."
+          />
+        )}
+
+        {!loading && games.length === 0 && (
+          <EmptyState
+            emoji="🔒"
+            title="Nenhum palpite liberado ainda"
+            description="Os palpites aparecem aqui assim que o horário de início do jogo passar."
+          />
+        )}
+
+        {stageTabs.length > 0 && (
+          <Paper
+            sx={{
+              border: "1px solid rgba(15, 23, 42, .08)",
+              borderRadius: 2,
+              boxShadow: "none",
+              p: 1,
+            }}
+          >
+            <Tabs
+              value={selectedTab?.id ?? selectedStage}
+              variant="scrollable"
+              scrollButtons="auto"
+              onChange={(_, value: string) => setSelectedStage(value)}
+            >
+              {stageTabs.map((tab) => (
+                <Tab
+                  key={tab.id}
+                  label={`${tab.label} (${tab.games.length})`}
+                  value={tab.id}
+                />
+              ))}
+            </Tabs>
+          </Paper>
+        )}
+
+        {groupedGames.map(([groupName, groupGames]) => (
+          <Stack key={groupName} gap={1.25}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Typography variant="h6">{groupName}</Typography>
+              <Typography color="text.secondary">
+                {groupGames.length} jogo{groupGames.length === 1 ? "" : "s"}
+              </Typography>
+            </Stack>
+
+            {groupGames.map(({ game, guesses }) => (
+              <RevealedGameCard game={game} guesses={guesses} key={game.id} />
+            ))}
+          </Stack>
+        ))}
+      </Stack>
+    </Paper>
+  );
+}
+
+function RevealedGameCard({
+  game,
+  guesses,
+}: {
+  game: Game;
+  guesses: RevealedGroupGuess[];
+}) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        borderColor: "rgba(15, 23, 42, .10)",
+        borderRadius: 2,
+        boxShadow: "none",
+        p: 2,
+      }}
+    >
+      <Stack gap={1.5}>
+        <GameHeader game={game} />
+
+        {guesses.length === 0 ? (
+          <Typography color="text.secondary">
+            Ninguém do grupo palpitou neste jogo.
+          </Typography>
+        ) : (
+          <Grid container spacing={1.25}>
+            {guesses.map((guess) => (
+              <Grid item xs={12} sm={6} md={4} key={guess.id}>
+                <Paper variant="outlined" sx={{ borderRadius: 2, p: 1.25 }}>
+                  <Stack direction="row" alignItems="center" gap={1.25}>
+                    <Avatar src={guess.user.avatarUrl ?? undefined}>
+                      {guess.user.username.slice(0, 2).toUpperCase()}
+                    </Avatar>
+                    <Box minWidth={0}>
+                      <Typography fontWeight={900} noWrap>
+                        {guess.user.username}
+                      </Typography>
+                      <Typography color="primary.main" fontWeight={950}>
+                        {guess.guessHome} x {guess.guessAway}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+type RevealedStageTab = {
+  games: RevealedGroupGame[];
+  id: string;
+  label: string;
+};
+
+const revealedStageTabsConfig = [
+  {
+    id: "group",
+    label: "Fase de grupos",
+    match: ({ game }: RevealedGroupGame) => game.stage === "Fase de grupos",
+  },
+  {
+    id: "r32",
+    label: "16 avos",
+    match: ({ game }: RevealedGroupGame) => game.stage === "16 avos de final",
+  },
+  {
+    id: "r16",
+    label: "Oitavas",
+    match: ({ game }: RevealedGroupGame) => game.stage === "Oitavas de final",
+  },
+  {
+    id: "qf",
+    label: "Quartas",
+    match: ({ game }: RevealedGroupGame) => game.stage === "Quartas de final",
+  },
+  {
+    id: "sf",
+    label: "Semifinal",
+    match: ({ game }: RevealedGroupGame) => game.stage === "Semifinal",
+  },
+  {
+    id: "final",
+    label: "Final",
+    match: ({ game }: RevealedGroupGame) => game.stage === "Final",
+  },
+  {
+    id: "third",
+    label: "3º lugar",
+    match: ({ game }: RevealedGroupGame) =>
+      game.stage === "Disputa de terceiro lugar",
+  },
+];
+
+function buildRevealedStageTabs(games: RevealedGroupGame[]) {
+  return revealedStageTabsConfig
+    .map((stage) => ({
+      games: games.filter(stage.match).sort(compareRevealedGames),
+      id: stage.id,
+      label: stage.label,
+    }))
+    .filter((stage) => stage.games.length > 0);
+}
+
+function groupRevealedGamesForTab(tab?: RevealedStageTab) {
+  if (!tab) {
+    return [] as [string, RevealedGroupGame[]][];
+  }
+
+  const grouped = new Map<string, RevealedGroupGame[]>();
+
+  for (const item of tab.games) {
+    const label =
+      tab.id === "group" && item.game.groupName
+        ? `Grupo ${item.game.groupName}`
+        : item.game.stage;
+    grouped.set(label, [...(grouped.get(label) ?? []), item]);
+  }
+
+  return [...grouped.entries()]
+    .map(
+      ([label, groupGames]) =>
+        [label, [...groupGames].sort(compareRevealedGames)] as [
+          string,
+          RevealedGroupGame[],
+        ],
+    )
+    .sort(([firstLabel], [secondLabel]) =>
+      compareRevealedGroupLabels(firstLabel, secondLabel),
+    );
+}
+
+function compareRevealedGames(
+  firstGame: RevealedGroupGame,
+  secondGame: RevealedGroupGame,
+) {
+  if (firstGame.game.groupName && secondGame.game.groupName) {
+    const groupOrder = firstGame.game.groupName.localeCompare(
+      secondGame.game.groupName,
+      "pt-BR",
+      { numeric: true },
+    );
+
+    if (groupOrder !== 0) {
+      return groupOrder;
+    }
+  }
+
+  return (
+    Date.parse(firstGame.game.startsAt) - Date.parse(secondGame.game.startsAt)
+  );
+}
+
+function compareRevealedGroupLabels(firstLabel: string, secondLabel: string) {
+  if (firstLabel.startsWith("Grupo ") && secondLabel.startsWith("Grupo ")) {
+    return firstLabel.localeCompare(secondLabel, "pt-BR", { numeric: true });
+  }
+
+  return 0;
 }
 
 function PrizeCard({

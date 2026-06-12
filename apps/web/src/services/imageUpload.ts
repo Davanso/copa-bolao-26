@@ -1,8 +1,8 @@
-const MAX_UPLOAD_FILE_BYTES = 8_000_000;
-const MAX_IMAGE_DIMENSION = 1024;
-const TARGET_IMAGE_BYTES = 700_000;
-const MIN_QUALITY = 0.55;
-const DEFAULT_QUALITY = 0.86;
+const MAX_UPLOAD_FILE_BYTES = 20_000_000;
+const MAX_IMAGE_DIMENSION = 720;
+const TARGET_IMAGE_BYTES = 380_000;
+const MIN_QUALITY = 0.5;
+const DEFAULT_QUALITY = 0.82;
 
 export class ImageUploadError extends Error {}
 
@@ -12,7 +12,7 @@ export function validateImageFile(file: File) {
   }
 
   if (file.size > MAX_UPLOAD_FILE_BYTES) {
-    throw new ImageUploadError("Use uma imagem de até 8 MB.");
+    throw new ImageUploadError("Use uma imagem de até 20 MB.");
   }
 }
 
@@ -82,7 +82,7 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number) {
 
         resolve(blob);
       },
-      "image/webp",
+      "image/jpeg",
       quality,
     );
   });

@@ -10,6 +10,7 @@ import {
   symbolicPrizeSchema,
 } from "../../shared/validation/schemas.js";
 import { buildRanking } from "../ranking/ranking.routes.js";
+import { getWorldCupGames } from "../world-cup/world-cup.provider.js";
 
 export const groupsRouter = Router();
 
@@ -166,6 +167,63 @@ groupsRouter.get("/:groupId/ranking", requireAuth, async (req, res) => {
 
   res.json({ ranking: await buildRanking(userIds, groupId) });
 });
+
+groupsRouter.get(
+  "/:groupId/revealed-guesses",
+  requireAuth,
+  async (req, res) => {
+    const groupId = String(req.params.groupId);
+    await ensureMember(groupId, req.user!.id);
+
+    const members = await prisma.groupMember.findMany({
+      where: { groupId },
+      include: { user: { select: memberUserSelect } },
+      orderBy: { joinedAt: "asc" },
+    });
+    const memberIds = members.map((member) => member.userId);
+    const games = (await getWorldCupGames()).filter((game) =>
+      canRevealGuesses(game.startsAt),
+    );
+    const guesses = await prisma.guess.findMany({
+      where: {
+        gameId: { in: games.map((game) => game.id) },
+        userId: { in: memberIds },
+      },
+    });
+    const guessesByGame = new Map<string, typeof guesses>();
+
+    for (const guess of guesses) {
+      guessesByGame.set(guess.gameId, [
+        ...(guessesByGame.get(guess.gameId) ?? []),
+        guess,
+      ]);
+    }
+
+    const membersById = new Map(
+      members.map((member) => [member.userId, member]),
+    );
+    const revealedGames = games.map((game) => ({
+      game,
+      guesses: (guessesByGame.get(game.id) ?? [])
+        .map((guess) => {
+          const member = membersById.get(guess.userId);
+
+          return member
+            ? {
+                guessAway: guess.guessAway,
+                guessHome: guess.guessHome,
+                id: guess.id,
+                user: member.user,
+                userId: guess.userId,
+              }
+            : null;
+        })
+        .filter(Boolean),
+    }));
+
+    res.json({ games: revealedGames });
+  },
+);
 
 groupsRouter.post(
   "/:groupId/invite-code/regenerate",
@@ -392,6 +450,12 @@ async function ensureOwner(groupId: string, userId: string) {
   }
 
   return data;
+}
+
+function canRevealGuesses(startsAt: string) {
+  const startTime = Date.parse(startsAt);
+
+  return Number.isFinite(startTime) && startTime <= Date.now();
 }
 
 async function generateUniqueInviteCode(previousCode?: string) {

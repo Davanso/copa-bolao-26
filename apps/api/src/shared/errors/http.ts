@@ -22,7 +22,8 @@ export function errorHandler(
 
   if (error instanceof PrismaClientInitializationError) {
     return res.status(503).json({
-      message: "Banco de dados indisponível no momento. Tente novamente em instantes.",
+      message:
+        "Banco de dados indisponível no momento. Tente novamente em instantes.",
     });
   }
 

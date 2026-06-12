@@ -166,7 +166,12 @@ export function GroupsPage() {
             <Paper sx={{ p: 2.5 }}>
               <Stack gap={1.5}>
                 <Stack direction="row" justifyContent="space-between" gap={2}>
-                  <Stack direction="row" alignItems="center" gap={1.5} minWidth={0}>
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    gap={1.5}
+                    minWidth={0}
+                  >
                     <Avatar
                       src={group.imageUrl ?? undefined}
                       variant="rounded"
