@@ -7,7 +7,8 @@ Monorepo com API Express + TypeScript e frontend React/Vite/MUI para um bolão c
 - Frontend: React + Vite + MUI
 - Backend: Node.js + Express + TypeScript
 - Banco: PostgreSQL via Prisma
-- Jogos: API externa `worldcup26.ir` (não persistimos jogos no banco)
+- Jogos: tabela via `worldcup26.ir` + horários oficiais locais
+- Ao vivo: opcional via `football-data.org`, com fallback local
 
 ## Rodar localmente
 
@@ -76,6 +77,28 @@ O usuário admin é criado automaticamente ao iniciar a API se não existir.
   - `JWT_SECRET`
   - `WEB_ORIGIN=https://seu-front.vercel.app`
   - `WORLD_CUP_API_URL=https://worldcup26.ir/get/games`
+  - `FOOTBALL_DATA_API_TOKEN=seu-token-football-data`
+  - `FOOTBALL_DATA_COMPETITION=WC`
+  - `FOOTBALL_DATA_CACHE_TTL_MS=70000`
+
+### Ao vivo com Football-Data
+
+Para testar uma fonte melhor de placar ao vivo:
+
+1. Crie uma conta em `football-data.org`.
+2. Copie o token da API.
+3. Configure na API:
+
+```bash
+FOOTBALL_DATA_API_TOKEN="seu-token"
+FOOTBALL_DATA_COMPETITION="WC"
+FOOTBALL_DATA_CACHE_TTL_MS="70000"
+```
+
+Com token configurado, `/live-games` tenta `football-data.org` primeiro. Se
+falhar ou o token não existir, usa o fallback atual baseado no horário oficial.
+O cache padrão é de 70 segundos para respeitar o limite grátis de 10 chamadas
+por minuto.
 
 ### Vercel Web
 

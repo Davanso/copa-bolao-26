@@ -1,25 +1,49 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { requireAuth } from "../../shared/auth/auth.js";
 import { getWorldCupGames } from "../world-cup/world-cup.provider.js";
+import { getFootballDataLiveGames } from "./football-data.provider.js";
 
 export const liveScoreRouter = Router();
 
 liveScoreRouter.get("/", requireAuth, async (_req, res) => {
+  const footballDataLiveGames = await tryFootballDataLiveGames();
+
+  if (footballDataLiveGames) {
+    res.json({
+      liveGames: footballDataLiveGames.map((game) => ({
+        ...game,
+        events: [],
+      })),
+      source: "football-data.org",
+      syncedAt: new Date().toISOString(),
+    });
+    return;
+  }
+
   const games = await getWorldCupGames();
   const liveGames = games
     .filter((game) => game.status === "live" || isInsideLiveWindow(game))
     .map((game) => ({
       ...game,
-      status: "live",
       events: [],
+      status: "live",
     }));
 
   res.json({
-    source: "worldcup26.ir",
     liveGames,
+    source: "worldcup26.ir",
     syncedAt: new Date().toISOString(),
   });
 });
+
+async function tryFootballDataLiveGames() {
+  try {
+    return await getFootballDataLiveGames();
+  } catch (error) {
+    console.warn("[WARN] football-data.live.failed", error);
+    return null;
+  }
+}
 
 function isInsideLiveWindow(game: {
   startsAt: string;

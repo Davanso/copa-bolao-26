@@ -10,7 +10,7 @@ export function LivePage() {
   const { data, error, isLoading } = useQuery<{ liveGames: Game[] }>({
     queryKey: ["live"],
     queryFn: async () => (await api.get("/live-games")).data,
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
   });
@@ -19,7 +19,7 @@ export function LivePage() {
     <Stack gap={2}>
       <Typography variant="h4">Ao vivo</Typography>
       <Typography color="text.secondary">
-        Atualização automática a cada 10 segundos.
+        Atualização automática a cada 30 segundos.
       </Typography>
 
       {isLoading && (
