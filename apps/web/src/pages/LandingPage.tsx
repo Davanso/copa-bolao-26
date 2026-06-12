@@ -15,7 +15,7 @@ import logo from "../assets/logo-fifa.webp";
 const stats = [
   ["Privado", "Grupos por convite"],
   ["Automático", "Ranking por pontuação"],
-  ["Transparente", "Palpites liberados após o jogo começar"],
+  ["Transparente", "Visualização dos palpites após o jogo começar"],
 ];
 
 const features = [
