@@ -19,7 +19,7 @@ export const loginSchema = z.object({
 });
 
 export const profileSchema = z.object({
-  avatarUrl: z.string().max(800_000).optional().or(z.literal("")),
+  avatarUrl: z.string().max(1_200_000).optional().or(z.literal("")),
   email: z.string().email().max(120).optional().or(z.literal("")),
   firstName: z.string().min(2).max(40).optional().or(z.literal("")),
   lastName: z.string().min(2).max(60).optional().or(z.literal("")),
@@ -44,7 +44,7 @@ export const resultSchema = z.object({
 
 export const groupSchema = z.object({
   description: z.string().max(160).nullish(),
-  imageUrl: z.string().max(800_000).optional().or(z.literal("")),
+  imageUrl: z.string().max(1_200_000).optional().or(z.literal("")),
   name: z.string().min(3).max(48),
 });
 

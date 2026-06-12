@@ -14,6 +14,10 @@ import {
 } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
+import {
+  compressImageToDataUrl,
+  ImageUploadError,
+} from "../services/imageUpload";
 import type { User } from "../services/types";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
@@ -113,17 +117,21 @@ export function UserPage() {
       return;
     }
 
-    if (file.size > 450_000) {
-      showToast("Use uma imagem menor que 450 KB.", "warning");
-      return;
+    try {
+      const avatarUrl = await compressImageToDataUrl(file);
+
+      setProfile((current) => ({
+        ...current,
+        avatarUrl,
+      }));
+    } catch (error) {
+      showToast(
+        error instanceof ImageUploadError
+          ? error.message
+          : "Não foi possível preparar a imagem.",
+        "warning",
+      );
     }
-
-    const avatarUrl = await fileToDataUrl(file);
-
-    setProfile((current) => ({
-      ...current,
-      avatarUrl,
-    }));
   }
 
   return (
@@ -390,15 +398,6 @@ function userToForm(user: User | null): ProfileForm {
     lastName: user?.lastName ?? "",
     username: user?.username ?? "",
   };
-}
-
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.readAsDataURL(file);
-  });
 }
 
 function BadgeIcon() {

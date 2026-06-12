@@ -25,6 +25,10 @@ import { LoadingState } from "../components/LoadingState";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
+import {
+  compressImageToDataUrl,
+  ImageUploadError,
+} from "../services/imageUpload";
 import type {
   Group,
   GroupMember,
@@ -349,17 +353,16 @@ export function GroupDetailsPage() {
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      showToast("Escolha um arquivo de imagem.", "error");
-      return;
+    try {
+      setGroupImageUrl(await compressImageToDataUrl(file));
+    } catch (error) {
+      showToast(
+        error instanceof ImageUploadError
+          ? error.message
+          : "Não foi possível preparar a imagem.",
+        "error",
+      );
     }
-
-    if (file.size > 450_000) {
-      showToast("Use uma imagem de até 450 KB.", "error");
-      return;
-    }
-
-    setGroupImageUrl(await fileToDataUrl(file));
   }
 
   return (
@@ -911,15 +914,6 @@ function commonContributionValue(members: GroupMember[]) {
   );
 
   return sameForEveryone ? firstContribution : 0;
-}
-
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => resolve(String(reader.result));
-    reader.readAsDataURL(file);
-  });
 }
 
 function ScoringRulesCard({
