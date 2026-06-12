@@ -80,6 +80,7 @@ O usuário admin é criado automaticamente ao iniciar a API se não existir.
   - `FOOTBALL_DATA_API_TOKEN=seu-token-football-data`
   - `FOOTBALL_DATA_COMPETITION=WC`
   - `FOOTBALL_DATA_CACHE_TTL_MS=70000`
+  - `LIVE_SCORE_ENABLE_SCHEDULE_FALLBACK=false`
 
 ### Ao vivo com Football-Data
 
@@ -96,9 +97,11 @@ FOOTBALL_DATA_CACHE_TTL_MS="70000"
 ```
 
 Com token configurado, `/live-games` tenta `football-data.org` primeiro. Se
-falhar ou o token não existir, usa o fallback atual baseado no horário oficial.
-O cache padrão é de 70 segundos para respeitar o limite grátis de 10 chamadas
-por minuto.
+falhar ou o token não existir, o fallback baseado no horário oficial fica ativo
+apenas em desenvolvimento. Em produção, deixe
+`LIVE_SCORE_ENABLE_SCHEDULE_FALLBACK=false` para evitar marcar partidas como
+ao vivo sem confirmação de placar real. O cache padrão é de 70 segundos para
+respeitar o limite grátis de 10 chamadas por minuto.
 
 ### Vercel Web
 

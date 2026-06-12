@@ -497,11 +497,11 @@ export function AppLayout() {
         onClose={() => setPendingNavigationPath(null)}
         fullWidth
       >
-        <DialogTitle>Sair sem salvar altera??es?</DialogTitle>
+        <DialogTitle>Sair sem salvar alterações?</DialogTitle>
         <DialogContent>
           <Typography color="text.secondary">
-            Voc? tem altera??es preenchidas que ainda n?o foram salvas. Se sair
-            agora, essas altera??es ser?o perdidas.
+            Você tem alterações preenchidas que ainda não foram salvas. Se sair
+            agora, essas alterações serão perdidas.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2.5, pt: 1 }}>

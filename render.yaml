@@ -21,6 +21,8 @@ services:
         sync: false
       - key: WORLD_CUP_API_URL
         value: https://worldcup26.ir/get/games
+      - key: LIVE_SCORE_ENABLE_SCHEDULE_FALLBACK
+        value: false
       - key: ADMIN_USERNAME
         value: admin
       - key: ADMIN_PASSWORD

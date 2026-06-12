@@ -46,7 +46,7 @@ const teamTranslations: Record<string, string> = {
   Netherlands: "Holanda",
   "New Zealand": "Nova Zelândia",
   Norway: "Noruega",
-  Panama: "Panam?",
+  Panama: "Panamá",
   Paraguay: "Paraguai",
   Portugal: "Portugal",
   Qatar: "Catar",
@@ -64,7 +64,7 @@ const teamTranslations: Record<string, string> = {
   Turkey: "Turquia",
   "United States": "Estados Unidos",
   Uruguay: "Uruguai",
-  Uzbekistan: "Uzbequist?o",
+  Uzbekistan: "Uzbequistão",
 };
 
 type WorldCupApiGame = {

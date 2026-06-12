@@ -5,6 +5,11 @@ import { getWorldCupGames } from "../world-cup/world-cup.provider.js";
 
 export const rankingRouter = Router();
 
+type GuessScore = {
+  exact: boolean;
+  points: number;
+};
+
 export async function buildRanking(userIds?: string[], groupId?: string) {
   const users = await prisma.user.findMany({
     where: userIds ? { id: { in: userIds } } : undefined,
@@ -20,9 +25,12 @@ export async function buildRanking(userIds?: string[], groupId?: string) {
 
   return users
     .map((user) => {
-      const pointsByGuess = user.guesses.map((guess) => {
+      const scoresByGuess = user.guesses.map((guess): GuessScore => {
         if (!groupId) {
-          return guess.points ?? 0;
+          return {
+            exact: false,
+            points: guess.points ?? 0,
+          };
         }
 
         const game = gamesById.get(guess.gameId);
@@ -33,7 +41,7 @@ export async function buildRanking(userIds?: string[], groupId?: string) {
           game.scoreHome === null ||
           game.scoreAway === null
         ) {
-          return 0;
+          return { exact: false, points: 0 };
         }
 
         const rule = rulesByStage.get(game.stage) ?? {
@@ -45,10 +53,10 @@ export async function buildRanking(userIds?: string[], groupId?: string) {
           guess.guessHome === game.scoreHome &&
           guess.guessAway === game.scoreAway
         ) {
-          return rule.exactPoints;
+          return { exact: true, points: rule.exactPoints };
         }
 
-        return sameOutcome(
+        const points = sameOutcome(
           guess.guessHome,
           guess.guessAway,
           game.scoreHome,
@@ -56,15 +64,21 @@ export async function buildRanking(userIds?: string[], groupId?: string) {
         )
           ? rule.resultPoints
           : 0;
+
+        return { exact: false, points };
       });
 
       return {
         avatarUrl: user.avatarUrl,
         userId: user.id,
         username: user.username,
-        totalPoints: pointsByGuess.reduce((sum, points) => sum + points, 0),
-        exactScores: pointsByGuess.filter((points) => points >= 3).length,
-        scoredGuesses: pointsByGuess.filter((points) => points > 0).length,
+        totalPoints: scoresByGuess.reduce(
+          (sum, score) => sum + score.points,
+          0,
+        ),
+        exactScores: scoresByGuess.filter((score) => score.exact).length,
+        scoredGuesses: scoresByGuess.filter((score) => score.points > 0)
+          .length,
         guessesCount: user.guesses.length,
       };
     })

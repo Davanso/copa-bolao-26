@@ -1,5 +1,18 @@
 ﻿import { z } from "zod";
 
+const imageReferenceSchema = z
+  .string()
+  .max(1_200_000)
+  .refine(
+    (value) =>
+      !value ||
+      /^https?:\/\/.+/i.test(value) ||
+      /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(value),
+    "Use uma URL de imagem v?lida ou uma imagem JPG, PNG ou WebP.",
+  )
+  .optional()
+  .or(z.literal(""));
+
 export const credentialsSchema = z.object({
   username: z.string().min(3).max(24),
   password: z.string().min(6).max(72),
@@ -19,7 +32,7 @@ export const loginSchema = z.object({
 });
 
 export const profileSchema = z.object({
-  avatarUrl: z.string().max(1_200_000).optional().or(z.literal("")),
+  avatarUrl: imageReferenceSchema,
   email: z.string().email().max(120).optional().or(z.literal("")),
   firstName: z.string().min(2).max(40).optional().or(z.literal("")),
   lastName: z.string().min(2).max(60).optional().or(z.literal("")),
@@ -44,7 +57,7 @@ export const resultSchema = z.object({
 
 export const groupSchema = z.object({
   description: z.string().max(160).nullish(),
-  imageUrl: z.string().max(1_200_000).optional().or(z.literal("")),
+  imageUrl: imageReferenceSchema,
   name: z.string().min(3).max(48),
 });
 

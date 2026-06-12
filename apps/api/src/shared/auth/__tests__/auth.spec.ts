@@ -1,0 +1,34 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { HttpError } from "../../errors/http.js";
+import { jwtSecret } from "../auth.js";
+
+const originalNodeEnv = process.env.NODE_ENV;
+const originalJwtSecret = process.env.JWT_SECRET;
+
+describe("jwtSecret", () => {
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+    process.env.JWT_SECRET = originalJwtSecret;
+  });
+
+  it("usa fallback apenas fora de produção", () => {
+    process.env.NODE_ENV = "development";
+    delete process.env.JWT_SECRET;
+
+    expect(jwtSecret()).toBe("dev-secret-change-me");
+  });
+
+  it("falha em produção quando JWT_SECRET não está configurado", () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.JWT_SECRET;
+
+    expect(() => jwtSecret()).toThrow(HttpError);
+  });
+
+  it("usa o segredo configurado", () => {
+    process.env.NODE_ENV = "production";
+    process.env.JWT_SECRET = "super-secret";
+
+    expect(jwtSecret()).toBe("super-secret");
+  });
+});

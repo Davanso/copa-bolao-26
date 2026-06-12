@@ -12,18 +12,23 @@ import {
   DialogTitle,
   Paper,
   Stack,
-  SvgIcon,
   Tab,
   Tabs,
   TextField,
   Typography,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { TeamFlag } from "../components/TeamFlag";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
+import {
+  buildStageTabs,
+  groupItemsForTab,
+  readStringSet,
+} from "../services/gameStages";
 import {
   formatGameDate,
   isGuessLocked,
@@ -57,12 +62,12 @@ export function GuessesPage() {
     queryFn: async () => (await api.get("/guesses/me")).data,
   });
   const stageTabs = useMemo(
-    () => buildGuessTabs(data?.guesses ?? []),
+    () => buildStageTabs(data?.guesses ?? [], (guess) => guess.game),
     [data?.guesses],
   );
   const selectedTab = stageTabs.find((tab) => tab.id === selectedStage);
   const groupedGuesses = useMemo(
-    () => groupGuessesForTab(selectedTab),
+    () => groupItemsForTab(selectedTab, (guess) => guess.game),
     [selectedTab],
   );
   const groupLabels = useMemo(
@@ -70,7 +75,7 @@ export function GuessesPage() {
     [groupedGuesses],
   );
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() =>
-    readExpandedGroups(),
+    readStringSet(expandedGuessesStorageKey),
   );
   const hasGuesses = groupedGuesses.length > 0;
   const allExpanded =
@@ -253,7 +258,7 @@ export function GuessesPage() {
             {stageTabs.map((tab) => (
               <Tab
                 key={tab.id}
-                label={`${tab.label} (${tab.guesses.length})`}
+                label={`${tab.label} (${tab.items.length})`}
                 value={tab.id}
               />
             ))}
@@ -335,14 +340,6 @@ export function GuessesPage() {
         }}
       />
     </Stack>
-  );
-}
-
-function ExpandMoreIcon() {
-  return (
-    <SvgIcon fontSize="medium" viewBox="0 0 24 24">
-      <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
-    </SvgIcon>
   );
 }
 
@@ -551,107 +548,4 @@ function inputToScore(value: string) {
 
 function normalizeScoreInput(value: string) {
   return value.replace(/\D/g, "").slice(0, 2);
-}
-
-type GuessTab = {
-  id: string;
-  label: string;
-  guesses: Guess[];
-};
-
-const guessTabsConfig = [
-  {
-    id: "group",
-    label: "Fase de grupos",
-    match: (guess: Guess) => guess.game?.stage === "Fase de grupos",
-  },
-  {
-    id: "r32",
-    label: "16 avos",
-    match: (guess: Guess) => guess.game?.stage === "16 avos de final",
-  },
-  {
-    id: "r16",
-    label: "Oitavas",
-    match: (guess: Guess) => guess.game?.stage === "Oitavas de final",
-  },
-  {
-    id: "qf",
-    label: "Quartas",
-    match: (guess: Guess) => guess.game?.stage === "Quartas de final",
-  },
-  {
-    id: "sf",
-    label: "Semifinal",
-    match: (guess: Guess) => guess.game?.stage === "Semifinal",
-  },
-  {
-    id: "final",
-    label: "Final",
-    match: (guess: Guess) => guess.game?.stage === "Final",
-  },
-  {
-    id: "third",
-    label: "3º lugar",
-    match: (guess: Guess) => guess.game?.stage === "Disputa de terceiro lugar",
-  },
-];
-
-function buildGuessTabs(guesses: Guess[]): GuessTab[] {
-  return guessTabsConfig
-    .map((stage) => ({
-      id: stage.id,
-      label: stage.label,
-      guesses: guesses.filter(stage.match).sort(compareGuesses),
-    }))
-    .filter((stage) => stage.guesses.length > 0);
-}
-
-function groupGuessesForTab(tab?: GuessTab) {
-  if (!tab) {
-    return [] as [string, Guess[]][];
-  }
-
-  const grouped = new Map<string, Guess[]>();
-
-  for (const guess of tab.guesses) {
-    const label =
-      tab.id === "group" && guess.game?.groupName
-        ? `Grupo ${guess.game.groupName}`
-        : (guess.game?.stage ?? "Sem jogo");
-    grouped.set(label, [...(grouped.get(label) ?? []), guess]);
-  }
-
-  return [...grouped.entries()].sort(([first], [second]) =>
-    first.localeCompare(second, "pt-BR", { numeric: true }),
-  );
-}
-
-function compareGuesses(first: Guess, second: Guess) {
-  return (
-    Date.parse(first.game?.startsAt ?? "") -
-    Date.parse(second.game?.startsAt ?? "")
-  );
-}
-
-function readExpandedGroups() {
-  try {
-    const storedGroups = localStorage.getItem(expandedGuessesStorageKey);
-
-    if (!storedGroups) {
-      return new Set<string>();
-    }
-
-    const parsedGroups = JSON.parse(storedGroups);
-
-    if (!Array.isArray(parsedGroups)) {
-      return new Set<string>();
-    }
-
-    return new Set(
-      parsedGroups.filter((groupName) => typeof groupName === "string"),
-    );
-  } catch {
-    return new Set<string>();
-  }
 }

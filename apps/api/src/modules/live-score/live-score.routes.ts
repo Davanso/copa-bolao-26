@@ -8,13 +8,22 @@ export const liveScoreRouter = Router();
 liveScoreRouter.get("/", requireAuth, async (_req, res) => {
   const footballDataLiveGames = await tryFootballDataLiveGames();
 
-  if (footballDataLiveGames) {
+  if (footballDataLiveGames !== null) {
     res.json({
       liveGames: footballDataLiveGames.map((game) => ({
         ...game,
         events: [],
       })),
       source: "football-data.org",
+      syncedAt: new Date().toISOString(),
+    });
+    return;
+  }
+
+  if (!shouldUseScheduleFallback()) {
+    res.json({
+      liveGames: [],
+      source: "unavailable",
       syncedAt: new Date().toISOString(),
     });
     return;
@@ -43,6 +52,14 @@ async function tryFootballDataLiveGames() {
     console.warn("[WARN] football-data.live.failed", error);
     return null;
   }
+}
+
+export function shouldUseScheduleFallback() {
+  if (process.env.LIVE_SCORE_ENABLE_SCHEDULE_FALLBACK === "true") {
+    return true;
+  }
+
+  return process.env.NODE_ENV !== "production";
 }
 
 function isInsideLiveWindow(game: {

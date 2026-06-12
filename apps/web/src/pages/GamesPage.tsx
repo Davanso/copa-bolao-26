@@ -9,18 +9,23 @@ import {
   Grid,
   Paper,
   Stack,
-  SvgIcon,
   Tab,
   Tabs,
   TextField,
   Typography,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { GameHeader } from "../components/GameHeader";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
+import {
+  buildStageTabs,
+  groupItemsForTab,
+  readStringSet,
+} from "../services/gameStages";
 import { isGameFinished, isGuessLocked } from "../services/gameHelpers";
 import type { Game, Guess } from "../services/types";
 
@@ -59,12 +64,12 @@ export function GamesPage() {
     refetchOnWindowFocus: true,
   });
   const stageTabs = useMemo(
-    () => buildStageTabs(data?.games ?? []),
+    () => buildStageTabs(data?.games ?? [], (game) => game),
     [data?.games],
   );
   const selectedTab = stageTabs.find((tab) => tab.id === selectedStage);
   const groupedGames = useMemo(
-    () => groupGamesForTab(selectedTab),
+    () => groupItemsForTab(selectedTab, (game) => game),
     [selectedTab],
   );
   const groupLabels = useMemo(
@@ -72,7 +77,7 @@ export function GamesPage() {
     [groupedGames],
   );
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() =>
-    readExpandedGroups(),
+    readStringSet(expandedGroupsStorageKey),
   );
   const [drafts, setDrafts] = useState<Record<string, GuessDraft>>({});
   const [savingGameIds, setSavingGameIds] = useState<Set<string>>(new Set());
@@ -407,7 +412,7 @@ export function GamesPage() {
             {stageTabs.map((tab) => (
               <Tab
                 key={tab.id}
-                label={`${tab.label} (${tab.games.length})`}
+                label={`${tab.label} (${tab.items.length})`}
                 value={tab.id}
               />
             ))}
@@ -532,14 +537,6 @@ export function GamesPage() {
   );
 }
 
-function ExpandMoreIcon() {
-  return (
-    <SvgIcon fontSize="medium" viewBox="0 0 24 24">
-      <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
-    </SvgIcon>
-  );
-}
-
 function GuessForm({
   draft,
   game,
@@ -649,133 +646,4 @@ function inputToScore(value: string) {
 
 function normalizeScoreInput(value: string) {
   return value.replace(/\D/g, "").slice(0, 2);
-}
-
-type StageTab = {
-  id: string;
-  label: string;
-  games: Game[];
-};
-
-const stageTabsConfig = [
-  {
-    id: "group",
-    label: "Fase de grupos",
-    match: (game: Game) => game.stage === "Fase de grupos",
-  },
-  {
-    id: "r32",
-    label: "16 avos",
-    match: (game: Game) => game.stage === "16 avos de final",
-  },
-  {
-    id: "r16",
-    label: "Oitavas",
-    match: (game: Game) => game.stage === "Oitavas de final",
-  },
-  {
-    id: "qf",
-    label: "Quartas",
-    match: (game: Game) => game.stage === "Quartas de final",
-  },
-  {
-    id: "sf",
-    label: "Semifinal",
-    match: (game: Game) => game.stage === "Semifinal",
-  },
-  {
-    id: "final",
-    label: "Final",
-    match: (game: Game) => game.stage === "Final",
-  },
-  {
-    id: "third",
-    label: "3º lugar",
-    match: (game: Game) => game.stage === "Disputa de terceiro lugar",
-  },
-];
-
-function buildStageTabs(games: Game[]): StageTab[] {
-  return stageTabsConfig
-    .map((stage) => ({
-      id: stage.id,
-      label: stage.label,
-      games: games.filter(stage.match).sort(compareGames),
-    }))
-    .filter((stage) => stage.games.length > 0);
-}
-
-function groupGamesForTab(tab?: StageTab) {
-  if (!tab) {
-    return [] as [string, Game[]][];
-  }
-
-  const grouped = new Map<string, Game[]>();
-
-  for (const game of tab.games) {
-    const label =
-      tab.id === "group" && game.groupName
-        ? `Grupo ${game.groupName}`
-        : game.stage;
-    grouped.set(label, [...(grouped.get(label) ?? []), game]);
-  }
-
-  return [...grouped.entries()]
-    .map(
-      ([label, groupedGames]) =>
-        [label, [...groupedGames].sort(compareGames)] as [string, Game[]],
-    )
-    .sort(([firstLabel], [secondLabel]) =>
-      compareGroupLabels(firstLabel, secondLabel),
-    );
-}
-
-function compareGames(firstGame: Game, secondGame: Game) {
-  if (firstGame.groupName && secondGame.groupName) {
-    const groupOrder = firstGame.groupName.localeCompare(
-      secondGame.groupName,
-      "pt-BR",
-      { numeric: true },
-    );
-
-    if (groupOrder !== 0) {
-      return groupOrder;
-    }
-  }
-
-  return Date.parse(firstGame.startsAt) - Date.parse(secondGame.startsAt);
-}
-
-function compareGroupLabels(firstLabel: string, secondLabel: string) {
-  if (isGroupLabel(firstLabel) && isGroupLabel(secondLabel)) {
-    return firstLabel.localeCompare(secondLabel, "pt-BR", { numeric: true });
-  }
-
-  return 0;
-}
-
-function isGroupLabel(label: string) {
-  return label.startsWith("Grupo ");
-}
-
-function readExpandedGroups() {
-  try {
-    const storedGroups = localStorage.getItem(expandedGroupsStorageKey);
-
-    if (!storedGroups) {
-      return new Set<string>();
-    }
-
-    const parsedGroups = JSON.parse(storedGroups);
-
-    if (!Array.isArray(parsedGroups)) {
-      return new Set<string>();
-    }
-
-    return new Set(
-      parsedGroups.filter((groupName) => typeof groupName === "string"),
-    );
-  } catch {
-    return new Set<string>();
-  }
 }
