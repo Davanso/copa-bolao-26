@@ -276,9 +276,9 @@ function ProductPreview() {
           <Typography sx={{ color: "#0f2f1a", fontWeight: 950 }}>
             Ranking ao vivo
           </Typography>
-          <MockRanking name="Guilherme" points="18 pts" />
-          <MockRanking name="Marina" points="15 pts" />
-          <MockRanking name="Rafael" points="12 pts" />
+          <MockRanking name="Guilherme" points="18 pontos" />
+          <MockRanking name="Marina" points="15 pontos" />
+          <MockRanking name="Rafael" points="12 pontos" />
         </Stack>
       </Stack>
     </Paper>

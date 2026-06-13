@@ -6,15 +6,16 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Grid,
   Paper,
   Stack,
+  SvgIcon,
   Tab,
   Tabs,
   TextField,
   Typography,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
@@ -26,7 +27,11 @@ import {
   groupItemsForTab,
   readStringSet,
 } from "../services/gameStages";
-import { isGameFinished, isGuessLocked } from "../services/gameHelpers";
+import {
+  guessFeedback,
+  isGameFinished,
+  isGuessLocked,
+} from "../services/gameHelpers";
 import type { Game, Guess } from "../services/types";
 
 const expandedGroupsStorageKey = "bolao.games.expandedGroups";
@@ -551,6 +556,7 @@ function GuessForm({
   onSave: (home: number, away: number) => void;
 }) {
   const locked = isGuessLocked(game);
+  const feedback = guessFeedback(game);
   const home = draft.home;
   const away = draft.away;
   const homeScore = inputToScore(home);
@@ -579,6 +585,18 @@ function GuessForm({
 
   return (
     <Stack gap={1.25} sx={{ mt: 1.5 }}>
+      {feedback && (
+        <Stack direction="row" gap={1} flexWrap="wrap">
+          <Chip label={feedback.label} color={feedback.color} size="small" />
+          {feedback.result !== "pending" && game.myGuess?.points !== null && (
+            <Chip
+              label={`${game.myGuess?.points ?? 0} pontos`}
+              color={(game.myGuess?.points ?? 0) > 0 ? "primary" : "default"}
+              size="small"
+            />
+          )}
+        </Stack>
+      )}
       <Typography variant="subtitle2">Seu palpite</Typography>
       <Stack direction={{ xs: "column", sm: "row" }} gap={1.25}>
         <TextField
@@ -646,4 +664,12 @@ function inputToScore(value: string) {
 
 function normalizeScoreInput(value: string) {
   return value.replace(/\D/g, "").slice(0, 2);
+}
+
+function ExpandMoreIcon() {
+  return (
+    <SvgIcon fontSize="medium" viewBox="0 0 24 24">
+      <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+    </SvgIcon>
+  );
 }

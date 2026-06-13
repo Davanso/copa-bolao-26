@@ -268,7 +268,7 @@ function PodiumCard({
           <Typography variant="h6">{item.username}</Typography>
           <Typography color="text.secondary">{config.label}</Typography>
         </Box>
-        <Chip label={`${item.totalPoints} pts`} color="primary" />
+        <Chip label={`${item.totalPoints} pontos`} color="primary" />
       </Stack>
       <Box
         sx={{
@@ -347,11 +347,11 @@ function ScoringRulesSummary({ group }: { group: Group }) {
                   <Stack direction="row" gap={1} flexWrap="wrap">
                     <Chip
                       color="primary"
-                      label={`${rule.exactPoints} pts placar`}
+                      label={`${rule.exactPoints} pontos se cravado`}
                     />
                     <Chip
                       color="secondary"
-                      label={`${rule.resultPoints} pts resultado`}
+                      label={`${rule.resultPoints} pontos resultado`}
                     />
                   </Stack>
                 </Stack>
@@ -393,7 +393,7 @@ function RankingRow({
         </Stack>
         <Stack alignItems={{ xs: "flex-start", sm: "flex-end" }}>
           <Typography>
-            {item.totalPoints} pts · {item.exactScores} cravados ·{" "}
+            {item.totalPoints} pontos · {item.exactScores} cravados ·{" "}
             {item.scoredGuesses} pontuados
           </Typography>
           {prize > 0 && (

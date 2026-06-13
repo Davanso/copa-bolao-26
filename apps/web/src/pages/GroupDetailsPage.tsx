@@ -889,19 +889,33 @@ function RevealedGameCard({
             {guesses.map((guess) => (
               <Grid item xs={12} sm={6} md={4} key={guess.id}>
                 <Paper variant="outlined" sx={{ borderRadius: 2, p: 1.25 }}>
-                  <Stack direction="row" alignItems="center" gap={1.25}>
-                    <Avatar src={guess.user.avatarUrl ?? undefined}>
-                      {guess.user.username.slice(0, 2).toUpperCase()}
-                    </Avatar>
-                    <Box minWidth={0}>
+                  <Box
+                    sx={{
+                      alignItems: "center",
+                      columnGap: 1.25,
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      gap={1}
+                      minWidth={0}
+                    >
+                      <Avatar src={guess.user.avatarUrl ?? undefined}>
+                        {guess.user.username.slice(0, 2).toUpperCase()}
+                      </Avatar>
                       <Typography fontWeight={900} noWrap>
                         {guess.user.username}
                       </Typography>
-                      <Typography color="primary.main" fontWeight={950}>
-                        {guess.guessHome} x {guess.guessAway}
-                      </Typography>
-                    </Box>
-                  </Stack>
+                    </Stack>
+                    <GuessScoreBlock
+                      guessAway={guess.guessAway}
+                      guessHome={guess.guessHome}
+                    />
+                    <Box />
+                  </Box>
                 </Paper>
               </Grid>
             ))}
@@ -909,6 +923,41 @@ function RevealedGameCard({
         )}
       </AccordionDetails>
     </Accordion>
+  );
+}
+
+function GuessScoreBlock({
+  guessAway,
+  guessHome,
+}: {
+  guessAway: number;
+  guessHome: number;
+}) {
+  return (
+    <Box
+      aria-label={`Palpite ${guessHome} a ${guessAway}`}
+      sx={{
+        alignItems: "center",
+        bgcolor: "rgba(0, 156, 60, 0.18)",
+        border: "1px solid rgba(0, 156, 59, .22)",
+        borderRadius: 1.5,
+        color: "primary.main",
+        display: "flex",
+        fontSize: 18,
+        fontWeight: 950,
+        gap: 1,
+        justifyContent: "center",
+        lineHeight: 1,
+        minWidth: 72,
+        px: 1.25,
+        py: 0.9,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <Box component="span">{guessHome}</Box>
+      <Box component="span">x</Box>
+      <Box component="span">{guessAway}</Box>
+    </Box>
   );
 }
 

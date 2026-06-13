@@ -12,15 +12,17 @@ import {
   DialogTitle,
   Paper,
   Stack,
+  SvgIcon,
   Tab,
   Tabs,
   TextField,
   Typography,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { EmptyState } from "../components/EmptyState";
-import { LoadingState } from "../components/LoadingState";
+import {
+  GuessableGamesSection,
+  upcomingGamesToday,
+} from "../components/GuessableGamesSection";
 import { TeamFlag } from "../components/TeamFlag";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
@@ -31,6 +33,7 @@ import {
 } from "../services/gameStages";
 import {
   formatGameDate,
+  guessFeedback,
   isGuessLocked,
   statusLabel,
 } from "../services/gameHelpers";
@@ -42,45 +45,74 @@ type GamesResponse = {
   games: Game[];
 };
 
-type GuessesResponse = {
-  guesses: Guess[];
-};
-
-type GuessPayload = {
-  gameId: string;
-  guessHome: number;
-  guessAway: number;
-};
-
 export function GuessesPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const [guessToEdit, setGuessToEdit] = useState<Guess | null>(null);
   const [selectedStage, setSelectedStage] = useState("group");
-  const { data, error, isLoading } = useQuery<{ guesses: Guess[] }>({
-    queryKey: ["guesses-me"],
-    queryFn: async () => (await api.get("/guesses/me")).data,
-  });
-  const stageTabs = useMemo(
-    () => buildStageTabs(data?.guesses ?? [], (guess) => guess.game),
-    [data?.guesses],
-  );
-  const selectedTab = stageTabs.find((tab) => tab.id === selectedStage);
-  const groupedGuesses = useMemo(
-    () => groupItemsForTab(selectedTab, (guess) => guess.game),
-    [selectedTab],
-  );
-  const groupLabels = useMemo(
-    () => groupedGuesses.map(([groupName]) => groupName),
-    [groupedGuesses],
-  );
+  const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() =>
     readStringSet(expandedGuessesStorageKey),
   );
-  const hasGuesses = groupedGuesses.length > 0;
-  const allExpanded =
-    hasGuesses &&
-    groupLabels.every((groupName) => expandedGroups.has(groupName));
+  const gamesQuery = useQuery<GamesResponse>({
+    queryKey: ["games"],
+    queryFn: async () => (await api.get("/games")).data,
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  });
+  const games = gamesQuery.data?.games ?? [];
+  const todayGames = useMemo(() => upcomingGamesToday(games), [games]);
+  const guessedGames = useMemo(
+    () => games.filter((game) => game.myGuess),
+    [games],
+  );
+  const stageTabs = useMemo(
+    () => buildStageTabs(guessedGames, (game) => game),
+    [guessedGames],
+  );
+  const selectedTab = stageTabs.find((tab) => tab.id === selectedStage);
+  const groupedGames = useMemo(
+    () => groupItemsForTab(selectedTab, (game) => game),
+    [selectedTab],
+  );
+  const groupLabels = useMemo(
+    () => groupedGames.map(([groupName]) => groupName),
+    [groupedGames],
+  );
+  const updateGuess = useMutation({
+    mutationFn: (payload: {
+      gameId: string;
+      guessAway: number;
+      guessHome: number;
+    }) =>
+      api.post<{ guess: Guess }>(`/games/${payload.gameId}/guess`, {
+        guessAway: payload.guessAway,
+        guessHome: payload.guessHome,
+      }),
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<GamesResponse>(["games"], (current) =>
+        current
+          ? {
+              ...current,
+              games: current.games.map((game) =>
+                game.id === data.guess.gameId
+                  ? { ...game, myGuess: data.guess }
+                  : game,
+              ),
+            }
+          : current,
+      );
+      queryClient.invalidateQueries({ queryKey: ["guesses-me"] });
+      setEditingGame(null);
+      showToast("Palpite atualizado com sucesso!", "success");
+    },
+    onError: (error: any) => {
+      showToast(
+        error.response?.data?.message ??
+          "Não foi possível atualizar o palpite.",
+        "error",
+      );
+    },
+  });
 
   useEffect(() => {
     if (!stageTabs.length) {
@@ -94,10 +126,6 @@ export function GuessesPage() {
 
   useEffect(() => {
     setExpandedGroups((currentGroups) => {
-      if (groupLabels.length === 0) {
-        return new Set();
-      }
-
       const visibleGroups = new Set(groupLabels);
       return new Set(
         [...currentGroups].filter((groupName) => visibleGroups.has(groupName)),
@@ -112,240 +140,162 @@ export function GuessesPage() {
     );
   }, [expandedGroups]);
 
-  const updateGuess = useMutation({
-    mutationFn: (payload: GuessPayload) =>
-      api.post<{ guess: Guess }>(`/games/${payload.gameId}/guess`, {
-        guessAway: payload.guessAway,
-        guessHome: payload.guessHome,
-      }),
-    onMutate: async (payload) => {
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: ["guesses-me"] }),
-        queryClient.cancelQueries({ queryKey: ["games"] }),
-      ]);
-
-      const previousGuesses = queryClient.getQueryData<GuessesResponse>([
-        "guesses-me",
-      ]);
-      const previousGames = queryClient.getQueryData<GamesResponse>(["games"]);
-
-      queryClient.setQueryData<GuessesResponse>(["guesses-me"], (current) =>
-        current
-          ? {
-              guesses: current.guesses.map((guess) =>
-                guess.gameId === payload.gameId
-                  ? {
-                      ...guess,
-                      guessAway: payload.guessAway,
-                      guessHome: payload.guessHome,
-                      points: null,
-                    }
-                  : guess,
-              ),
-            }
-          : current,
-      );
-      queryClient.setQueryData<GamesResponse>(["games"], (current) =>
-        current
-          ? {
-              ...current,
-              games: current.games.map((game) =>
-                game.id === payload.gameId && game.myGuess
-                  ? {
-                      ...game,
-                      myGuess: {
-                        ...game.myGuess,
-                        guessAway: payload.guessAway,
-                        guessHome: payload.guessHome,
-                        points: null,
-                      },
-                    }
-                  : game,
-              ),
-            }
-          : current,
-      );
-      setGuessToEdit(null);
-
-      return { previousGames, previousGuesses };
-    },
-    onSuccess: ({ data }, payload) => {
-      queryClient.setQueryData<GuessesResponse>(["guesses-me"], (current) =>
-        current
-          ? {
-              guesses: current.guesses.map((guess) =>
-                guess.gameId === payload.gameId
-                  ? { ...guess, ...data.guess }
-                  : guess,
-              ),
-            }
-          : current,
-      );
-      showToast("Palpite atualizado com sucesso!", "success");
-    },
-    onError: (err: any, _payload, context) => {
-      queryClient.setQueryData(["guesses-me"], context?.previousGuesses);
-      queryClient.setQueryData(["games"], context?.previousGames);
-      setGuessToEdit(guessToEdit);
-      showToast(
-        err.response?.data?.message ?? "Não foi possível atualizar o palpite.",
-        "error",
-      );
-    },
-  });
-
   return (
-    <Stack gap={2}>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        justifyContent="space-between"
-        gap={2}
-      >
+    <Stack gap={3}>
+      <Stack>
         <Typography variant="h4">Meus palpites</Typography>
-
-        {hasGuesses && (
-          <Stack direction="row" gap={1} alignItems="center">
-            <Button
-              size="small"
-              variant={allExpanded ? "contained" : "outlined"}
-              onClick={() => setExpandedGroups(new Set(groupLabels))}
-            >
-              Expandir tudo
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => setExpandedGroups(new Set())}
-            >
-              Colapsar tudo
-            </Button>
-          </Stack>
-        )}
+        <Typography color="text.secondary">
+          Edite jogos de hoje no topo e acompanhe seus palpites por fase.
+        </Typography>
       </Stack>
 
-      {isLoading && (
-        <LoadingState
-          title="Carregando palpites"
-          description="Buscando seus placares salvos."
-        />
-      )}
-      {error && (
-        <Alert severity="error">Não foi possível carregar palpites.</Alert>
-      )}
-      {!isLoading && data?.guesses.length === 0 && (
-        <EmptyState
-          emoji="📝"
-          title="Nenhum palpite salvo"
-          description="Escolha um jogo na tabela e registre seu placar antes do início."
-        />
+      {gamesQuery.error && (
+        <Alert severity="error">Não foi possível carregar seus palpites.</Alert>
       )}
 
-      {stageTabs.length > 0 && (
-        <Paper
-          sx={{
-            border: "1px solid rgba(15, 23, 42, .08)",
-            borderRadius: 2,
-            boxShadow: "none",
-            p: 1,
-          }}
-        >
-          <Tabs
-            value={selectedStage}
-            variant="scrollable"
-            scrollButtons="auto"
-            onChange={(_, value: string) => setSelectedStage(value)}
-          >
-            {stageTabs.map((tab) => (
-              <Tab
-                key={tab.id}
-                label={`${tab.label} (${tab.items.length})`}
-                value={tab.id}
-              />
-            ))}
-          </Tabs>
-        </Paper>
-      )}
+      <GuessableGamesSection
+        title="Próximos jogos de hoje"
+        description=""
+        emptyTitle="Sem jogos hoje"
+        emptyDescription="Não há jogos pendentes para hoje."
+        games={todayGames}
+        loading={gamesQuery.isLoading}
+      />
 
-      {groupedGuesses.map(([groupName, guesses]) => (
-        <Accordion
-          key={groupName}
-          expanded={expandedGroups.has(groupName)}
-          TransitionProps={{ timeout: 140, unmountOnExit: true }}
-          disableGutters
-          onChange={(_, expanded) => {
-            setExpandedGroups((currentGroups) => {
-              const nextGroups = new Set(currentGroups);
+      <Stack gap={1.5}>
+        <Stack>
+          <Typography variant="h5">Palpites salvos</Typography>
+          <Typography color="text.secondary">
+            Organizados por fase e grupo da competição.
+          </Typography>
+        </Stack>
 
-              if (expanded) {
-                nextGroups.add(groupName);
-              } else {
-                nextGroups.delete(groupName);
-              }
-
-              return nextGroups;
-            });
-          }}
-          sx={{
-            border: "1px solid rgba(15, 23, 42, .10)",
-            borderRadius: 2,
-            boxShadow: "none",
-            overflow: "hidden",
-            "&:before": { display: "none" },
-            "& + &": { mt: 1.5 },
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
+        {stageTabs.length > 0 && (
+          <Paper
             sx={{
-              bgcolor: "rgba(0, 156, 59, .06)",
-              borderBottom: expandedGroups.has(groupName)
-                ? "1px solid rgba(15, 23, 42, .08)"
-                : "0",
-              minHeight: 58,
+              border: "1px solid rgba(15, 23, 42, .08)",
+              borderRadius: 2,
+              boxShadow: "none",
+              p: 1,
             }}
           >
-            <Stack direction="row" justifyContent="space-between" width="100%">
-              <Typography variant="h6">{groupName}</Typography>
-              <Typography color="text.secondary">
-                {guesses.length} palpite{guesses.length === 1 ? "" : "s"}
-              </Typography>
-            </Stack>
-          </AccordionSummary>
-          <AccordionDetails sx={{ p: 2 }}>
-            <Stack gap={1.5}>
-              {guesses.map((guess) => (
-                <GuessCard
-                  guess={guess}
-                  key={guess.id}
-                  onEdit={() => setGuessToEdit(guess)}
+            <Tabs
+              value={selectedStage}
+              variant="scrollable"
+              scrollButtons="auto"
+              onChange={(_, value: string) => setSelectedStage(value)}
+            >
+              {stageTabs.map((tab) => (
+                <Tab
+                  key={tab.id}
+                  label={`${tab.label} (${tab.items.length})`}
+                  value={tab.id}
                 />
               ))}
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
-      ))}
+            </Tabs>
+          </Paper>
+        )}
+
+        {!gamesQuery.isLoading && guessedGames.length === 0 && (
+          <Alert severity="info">
+            Você ainda não salvou nenhum palpite.
+          </Alert>
+        )}
+
+        {groupedGames.map(([groupName, gamesInGroup]) => (
+          <Accordion
+            key={groupName}
+            expanded={expandedGroups.has(groupName)}
+            TransitionProps={{ timeout: 140, unmountOnExit: true }}
+            disableGutters
+            onChange={(_, expanded) => {
+              setExpandedGroups((currentGroups) => {
+                const nextGroups = new Set(currentGroups);
+
+                if (expanded) {
+                  nextGroups.add(groupName);
+                } else {
+                  nextGroups.delete(groupName);
+                }
+
+                return nextGroups;
+              });
+            }}
+            sx={{
+              border: "1px solid rgba(15, 23, 42, .10)",
+              borderRadius: 2,
+              boxShadow: "none",
+              overflow: "hidden",
+              "&:before": { display: "none" },
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{
+                bgcolor: "rgba(0, 156, 59, .06)",
+                borderBottom: expandedGroups.has(groupName)
+                  ? "1px solid rgba(15, 23, 42, .08)"
+                  : "0",
+                minHeight: 58,
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" width="100%">
+                <Typography variant="h6">{groupName}</Typography>
+                <Typography color="text.secondary">
+                  {gamesInGroup.length} palpite
+                  {gamesInGroup.length === 1 ? "" : "s"}
+                </Typography>
+              </Stack>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 2 }}>
+              <Stack gap={1.5}>
+                {gamesInGroup.map((game) => (
+                  <SavedGuessCard
+                    game={game}
+                    key={game.id}
+                    onEdit={() => setEditingGame(game)}
+                  />
+                ))}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        ))}
+      </Stack>
 
       <EditGuessDialog
-        guess={guessToEdit}
+        game={editingGame}
         loading={updateGuess.isPending}
-        onClose={() => setGuessToEdit(null)}
+        onClose={() => setEditingGame(null)}
         onSave={(guessHome, guessAway) => {
-          if (guessToEdit?.gameId) {
-            updateGuess.mutate({
-              gameId: guessToEdit.gameId,
-              guessHome,
-              guessAway,
-            });
+          if (!editingGame) {
+            return;
           }
+
+          updateGuess.mutate({
+            gameId: editingGame.id,
+            guessAway,
+            guessHome,
+          });
         }}
       />
     </Stack>
   );
 }
 
-function GuessCard({ guess, onEdit }: { guess: Guess; onEdit: () => void }) {
-  const locked = guess.game ? isGuessLocked(guess.game) : true;
-  const result = guessResult(guess);
+function SavedGuessCard({
+  game,
+  onEdit,
+}: {
+  game: Game;
+  onEdit: () => void;
+}) {
+  const guess = game.myGuess;
+  const locked = isGuessLocked(game);
+  const feedback = guessFeedback(game);
+
+  if (!guess) {
+    return null;
+  }
 
   return (
     <Paper
@@ -364,86 +314,49 @@ function GuessCard({ guess, onEdit }: { guess: Guess; onEdit: () => void }) {
           gap={2}
         >
           <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-            <TeamWithFlag name={guess.game?.teamHome ?? "Casa"} />
+            <TeamWithFlag name={game.teamHome} />
             <Typography fontWeight={900}>
               {guess.guessHome} x {guess.guessAway}
             </Typography>
-            <TeamWithFlag name={guess.game?.teamAway ?? "Fora"} />
+            <TeamWithFlag name={game.teamAway} />
           </Stack>
-          <Stack direction="row" gap={1} alignItems="center">
-            {result && <Chip label={result.label} color={result.color} />}
-            <Chip
-              label={guess.points == null ? "Pendente" : `${guess.points} pts`}
-              color={guess.points === 3 ? "primary" : "default"}
-            />
-            <Button
-              size="small"
-              variant="outlined"
-              disabled={locked}
-              onClick={onEdit}
-            >
-              Editar
-            </Button>
+          <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+            {feedback && <Chip label={feedback.label} color={feedback.color} />}
+            {feedback?.result !== "pending" && guess.points !== null && (
+              <Chip
+                label={`${guess.points} pontos`}
+                color={guess.points > 0 ? "primary" : "default"}
+              />
+            )}
+            {locked ? (
+              <Chip
+                label="Edição bloqueada"
+                color="default"
+                variant="outlined"
+              />
+            ) : (
+              <Button size="small" variant="outlined" onClick={onEdit}>
+                Editar
+              </Button>
+            )}
           </Stack>
         </Stack>
 
-        {guess.game && (
-          <Typography color="text.secondary">
-            {statusLabel[guess.game.status]} ·{" "}
-            {formatGameDate(guess.game.startsAt)}
-            {locked ? " · edição bloqueada" : ""}
-          </Typography>
-        )}
+        <Typography color="text.secondary">
+          {statusLabel[game.status]} · {formatGameDate(game.startsAt)}
+        </Typography>
       </Stack>
     </Paper>
   );
 }
 
-function TeamWithFlag({ name }: { name: string }) {
-  return (
-    <Stack direction="row" alignItems="center" gap={0.75}>
-      <TeamFlag name={name} />
-      <Typography fontWeight={800}>{name}</Typography>
-    </Stack>
-  );
-}
-
-function guessResult(guess: Guess) {
-  const game = guess.game;
-
-  if (
-    !game ||
-    game.status !== "finished" ||
-    game.scoreHome === null ||
-    game.scoreAway === null
-  ) {
-    return null;
-  }
-
-  if (
-    guess.guessHome === game.scoreHome &&
-    guess.guessAway === game.scoreAway
-  ) {
-    return { color: "success" as const, label: "Cravou o placar" };
-  }
-
-  const guessedOutcome = Math.sign(guess.guessHome - guess.guessAway);
-  const realOutcome = Math.sign(game.scoreHome - game.scoreAway);
-
-  if (guessedOutcome === realOutcome) {
-    return { color: "primary" as const, label: "Acertou o resultado" };
-  }
-
-  return { color: "error" as const, label: "Errou" };
-}
-
 function EditGuessDialog({
-  guess,
+  game,
   loading,
   onClose,
   onSave,
 }: {
-  guess: Guess | null;
+  game: Game | null;
   loading: boolean;
   onClose: () => void;
   onSave: (home: number, away: number) => void;
@@ -459,9 +372,9 @@ function EditGuessDialog({
     awayScore <= 30;
 
   useEffect(() => {
-    setHome(scoreToInput(guess?.guessHome));
-    setAway(scoreToInput(guess?.guessAway));
-  }, [guess]);
+    setHome(scoreToInput(game?.myGuess?.guessHome));
+    setAway(scoreToInput(game?.myGuess?.guessAway));
+  }, [game]);
 
   function save() {
     if (homeScore === null || awayScore === null) {
@@ -472,21 +385,17 @@ function EditGuessDialog({
   }
 
   return (
-    <Dialog
-      open={Boolean(guess)}
-      onClose={loading ? undefined : onClose}
-      fullWidth
-    >
+    <Dialog open={Boolean(game)} onClose={loading ? undefined : onClose} fullWidth>
       <DialogTitle>Editar palpite</DialogTitle>
       <DialogContent>
         <Stack gap={2} sx={{ pt: 1 }}>
           <Typography color="text.secondary">
-            {guess?.game?.teamHome} x {guess?.game?.teamAway}
+            {game?.teamHome} x {game?.teamAway}
           </Typography>
           <Stack direction="row" gap={1.5}>
             <TextField
               fullWidth
-              label={guess?.game?.teamHome ?? "Casa"}
+              label={game?.teamHome ?? "Casa"}
               placeholder="0"
               value={home}
               disabled={loading}
@@ -501,7 +410,7 @@ function EditGuessDialog({
             />
             <TextField
               fullWidth
-              label={guess?.game?.teamAway ?? "Fora"}
+              label={game?.teamAway ?? "Fora"}
               placeholder="0"
               value={away}
               disabled={loading}
@@ -533,6 +442,15 @@ function EditGuessDialog({
   );
 }
 
+function TeamWithFlag({ name }: { name: string }) {
+  return (
+    <Stack direction="row" alignItems="center" gap={0.75}>
+      <TeamFlag name={name} />
+      <Typography fontWeight={800}>{name}</Typography>
+    </Stack>
+  );
+}
+
 function scoreToInput(score?: number) {
   return score === undefined ? "" : String(score);
 }
@@ -548,4 +466,12 @@ function inputToScore(value: string) {
 
 function normalizeScoreInput(value: string) {
   return value.replace(/\D/g, "").slice(0, 2);
+}
+
+function ExpandMoreIcon() {
+  return (
+    <SvgIcon fontSize="medium" viewBox="0 0 24 24">
+      <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+    </SvgIcon>
+  );
 }
