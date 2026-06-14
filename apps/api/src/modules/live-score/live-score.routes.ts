@@ -8,7 +8,7 @@ export const liveScoreRouter = Router();
 liveScoreRouter.get("/", requireAuth, async (_req, res) => {
   const footballDataLiveGames = await tryFootballDataLiveGames();
 
-  if (footballDataLiveGames !== null) {
+  if (footballDataLiveGames?.length) {
     res.json({
       liveGames: footballDataLiveGames.map((game) => ({
         ...game,
@@ -20,23 +20,17 @@ liveScoreRouter.get("/", requireAuth, async (_req, res) => {
     return;
   }
 
-  if (!shouldUseScheduleFallback()) {
+  const games = await getWorldCupGames();
+  const liveGames = liveGamesFromWorldCup(games);
+
+  if (!liveGames.length && footballDataLiveGames !== null) {
     res.json({
       liveGames: [],
-      source: "unavailable",
+      source: "football-data.org",
       syncedAt: new Date().toISOString(),
     });
     return;
   }
-
-  const games = await getWorldCupGames();
-  const liveGames = games
-    .filter((game) => game.status === "live" || isInsideLiveWindow(game))
-    .map((game) => ({
-      ...game,
-      events: [],
-      status: "live",
-    }));
 
   res.json({
     liveGames,
@@ -60,6 +54,25 @@ export function shouldUseScheduleFallback() {
   }
 
   return process.env.NODE_ENV !== "production";
+}
+
+export function liveGamesFromWorldCup(
+  games: Array<{
+    startsAt: string;
+    status: "scheduled" | "live" | "finished" | "postponed";
+  }>,
+) {
+  return games
+    .filter(
+      (game) =>
+        game.status === "live" ||
+        (shouldUseScheduleFallback() && isInsideLiveWindow(game)),
+    )
+    .map((game) => ({
+      ...game,
+      events: [],
+      status: "live" as const,
+    }));
 }
 
 function isInsideLiveWindow(game: {
