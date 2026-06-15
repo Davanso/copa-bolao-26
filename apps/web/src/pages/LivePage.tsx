@@ -117,7 +117,7 @@ function LiveNowSection({
       {isLoading && (
         <LoadingState
           title="Buscando jogos ao vivo"
-          description="Estamos consultando a API da Copa."
+          description=""
         />
       )}
       {Boolean(error) && (
