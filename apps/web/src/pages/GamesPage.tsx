@@ -6,20 +6,21 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Grid,
   Paper,
   Stack,
   SvgIcon,
   Tab,
   Tabs,
-  TextField,
   Typography,
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
+import { GameCardShell } from "../components/GameCardShell";
 import { LoadingState } from "../components/LoadingState";
 import { GameHeader } from "../components/GameHeader";
+import { GuessFeedbackChips } from "../components/GuessFeedbackChips";
+import { GuessScoreFields } from "../components/GuessScoreFields";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import {
@@ -27,11 +28,12 @@ import {
   groupItemsForTab,
   readStringSet,
 } from "../services/gameStages";
+import { isGameFinished, isGuessLocked } from "../services/gameHelpers";
 import {
-  guessFeedback,
-  isGameFinished,
-  isGuessLocked,
-} from "../services/gameHelpers";
+  inputToScore,
+  isValidScore,
+  scoreToInput,
+} from "../services/scoreInput";
 import type { Game, Guess } from "../services/types";
 
 const expandedGroupsStorageKey = "bolao.games.expandedGroups";
@@ -393,7 +395,7 @@ export function GamesPage() {
       )}
       {!isLoading && data?.games.length === 0 && (
         <EmptyState
-          emoji="??"
+          emoji="📅"
           title="Nenhum jogo agendado"
           description="Assim que a API retornar partidas abertas, elas aparecem aqui."
         />
@@ -479,16 +481,7 @@ export function GamesPage() {
             <Grid container spacing={2}>
               {games.map((game) => (
                 <Grid item xs={12} lg={6} key={game.id}>
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      bgcolor: "background.paper",
-                      borderColor: "rgba(15, 23, 42, .10)",
-                      borderRadius: 2,
-                      boxShadow: "none",
-                      p: { xs: 1.5, sm: 2 },
-                    }}
-                  >
+                  <GameCardShell>
                     <GameHeader game={game} />
                     <GuessForm
                       draft={
@@ -513,7 +506,7 @@ export function GamesPage() {
                         })
                       }
                     />
-                  </Paper>
+                  </GameCardShell>
                 </Grid>
               ))}
             </Grid>
@@ -556,7 +549,6 @@ function GuessForm({
   onSave: (home: number, away: number) => void;
 }) {
   const locked = isGuessLocked(game);
-  const feedback = guessFeedback(game);
   const home = draft.home;
   const away = draft.away;
   const homeScore = inputToScore(home);
@@ -570,10 +562,8 @@ function GuessForm({
     !locked &&
     !saving &&
     changed &&
-    homeScore !== null &&
-    awayScore !== null &&
-    homeScore <= 30 &&
-    awayScore <= 30;
+    isValidScore(homeScore) &&
+    isValidScore(awayScore);
 
   function saveGuess() {
     if (homeScore === null || awayScore === null) {
@@ -585,58 +575,20 @@ function GuessForm({
 
   return (
     <Stack gap={1.25} sx={{ mt: 1.5 }}>
-      {feedback && (
-        <Stack direction="row" gap={1} flexWrap="wrap">
-          <Chip label={feedback.label} color={feedback.color} size="small" />
-          {feedback.result !== "pending" && game.myGuess?.points !== null && (
-            <Chip
-              label={`${game.myGuess?.points ?? 0} pontos`}
-              color={(game.myGuess?.points ?? 0) > 0 ? "primary" : "default"}
-              size="small"
-            />
-          )}
-        </Stack>
-      )}
+      <GuessFeedbackChips game={game} />
       <Typography variant="subtitle2">Seu palpite</Typography>
-      <Stack direction={{ xs: "column", sm: "row" }} gap={1.25}>
-        <TextField
-          label={game.teamHome}
-          placeholder="0"
-          value={home}
-          disabled={locked || saving}
-          inputProps={{ inputMode: "numeric", maxLength: 2, pattern: "[0-9]*" }}
-          sx={{ minWidth: { xs: "100%", sm: 150 }, flex: 1 }}
-          onChange={(event) =>
-            onChange({
-              ...draft,
-              home: normalizeScoreInput(event.target.value),
-            })
-          }
-        />
-        <TextField
-          label={game.teamAway}
-          placeholder="0"
-          value={away}
-          disabled={locked || saving}
-          inputProps={{ inputMode: "numeric", maxLength: 2, pattern: "[0-9]*" }}
-          sx={{ minWidth: { xs: "100%", sm: 150 }, flex: 1 }}
-          onChange={(event) =>
-            onChange({
-              ...draft,
-              away: normalizeScoreInput(event.target.value),
-            })
-          }
-        />
-        <Button
-          size="large"
-          variant="contained"
-          disabled={!canSave}
-          onClick={saveGuess}
-          sx={{ minWidth: { xs: "100%", sm: 170 } }}
-        >
-          {saving ? "Salvando..." : game.myGuess ? "Atualizar" : "Salvar"}
-        </Button>
-      </Stack>
+      <GuessScoreFields
+        awayLabel={game.teamAway}
+        buttonLabel={
+          saving ? "Salvando..." : game.myGuess ? "Atualizar" : "Salvar"
+        }
+        disabled={locked || saving}
+        draft={draft}
+        homeLabel={game.teamHome}
+        saveDisabled={!canSave}
+        onChange={onChange}
+        onSave={saveGuess}
+      />
 
       {locked && (
         <Typography variant="caption" color="text.secondary">
@@ -647,23 +599,6 @@ function GuessForm({
       )}
     </Stack>
   );
-}
-
-function scoreToInput(score?: number) {
-  return score === undefined ? "" : String(score);
-}
-
-function inputToScore(value: string) {
-  if (!value) {
-    return null;
-  }
-
-  const score = Number(value);
-  return Number.isInteger(score) && score >= 0 ? score : null;
-}
-
-function normalizeScoreInput(value: string) {
-  return value.replace(/\D/g, "").slice(0, 2);
 }
 
 function ExpandMoreIcon() {

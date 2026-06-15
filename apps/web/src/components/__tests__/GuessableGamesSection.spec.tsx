@@ -3,12 +3,12 @@ import { ThemeProvider } from "@mui/material/styles";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GuessableGamesSection } from "../GuessableGamesSection";
 import {
-  GuessableGamesSection,
   missingGuessGames,
   upcomingGamesToday,
   upcomingReminderGames,
-} from "../GuessableGamesSection";
+} from "../../services/gameFilters";
 import { api } from "../../services/api";
 import { theme } from "../../styles/theme";
 import type { Game } from "../../services/types";
@@ -27,7 +27,7 @@ function game(overrides: Partial<Game>): Game {
     scoreAway: null,
     scoreHome: null,
     stage: "Fase de grupos",
-    startsAt: "2026-06-13T19:00:00.000Z",
+    startsAt: "2026-06-20T19:00:00.000Z",
     status: "scheduled",
     teamAway: "México",
     teamHome: "Brasil",

@@ -15,17 +15,17 @@ import {
   SvgIcon,
   Tab,
   Tabs,
-  TextField,
   Typography,
 } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  GuessableGamesSection,
-  upcomingGamesToday,
-} from "../components/GuessableGamesSection";
+import { GuessableGamesSection } from "../components/GuessableGamesSection";
+import { GuessFeedbackChips } from "../components/GuessFeedbackChips";
+import { GuessScoreBlock } from "../components/GuessScoreBlock";
+import { GuessScoreFields } from "../components/GuessScoreFields";
 import { TeamFlag } from "../components/TeamFlag";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
+import { upcomingGamesToday } from "../services/gameFilters";
 import {
   buildStageTabs,
   groupItemsForTab,
@@ -33,10 +33,14 @@ import {
 } from "../services/gameStages";
 import {
   formatGameDate,
-  guessFeedback,
   isGuessLocked,
   statusLabel,
 } from "../services/gameHelpers";
+import {
+  inputToScore,
+  isValidScore,
+  scoreToInput,
+} from "../services/scoreInput";
 import type { Game, Guess } from "../services/types";
 
 const expandedGuessesStorageKey = "bolao.guesses.expandedGroups";
@@ -197,9 +201,7 @@ export function GuessesPage() {
         )}
 
         {!gamesQuery.isLoading && guessedGames.length === 0 && (
-          <Alert severity="info">
-            Você ainda não salvou nenhum palpite.
-          </Alert>
+          <Alert severity="info">Você ainda não salvou nenhum palpite.</Alert>
         )}
 
         {groupedGames.map(([groupName, gamesInGroup]) => (
@@ -239,7 +241,11 @@ export function GuessesPage() {
                 minHeight: 58,
               }}
             >
-              <Stack direction="row" justifyContent="space-between" width="100%">
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                width="100%"
+              >
                 <Typography variant="h6">{groupName}</Typography>
                 <Typography color="text.secondary">
                   {gamesInGroup.length} palpite
@@ -282,16 +288,9 @@ export function GuessesPage() {
   );
 }
 
-function SavedGuessCard({
-  game,
-  onEdit,
-}: {
-  game: Game;
-  onEdit: () => void;
-}) {
+function SavedGuessCard({ game, onEdit }: { game: Game; onEdit: () => void }) {
   const guess = game.myGuess;
   const locked = isGuessLocked(game);
-  const feedback = guessFeedback(game);
 
   if (!guess) {
     return null;
@@ -315,19 +314,14 @@ function SavedGuessCard({
         >
           <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
             <TeamWithFlag name={game.teamHome} />
-            <Typography fontWeight={900}>
-              {guess.guessHome} x {guess.guessAway}
-            </Typography>
+            <GuessScoreBlock
+              guessAway={guess.guessAway}
+              guessHome={guess.guessHome}
+            />
             <TeamWithFlag name={game.teamAway} />
           </Stack>
           <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
-            {feedback && <Chip label={feedback.label} color={feedback.color} />}
-            {feedback?.result !== "pending" && guess.points !== null && (
-              <Chip
-                label={`${guess.points} pontos`}
-                color={guess.points > 0 ? "primary" : "default"}
-              />
-            )}
+            <GuessFeedbackChips game={game} size="medium" />
             {locked ? (
               <Chip
                 label="Edição bloqueada"
@@ -365,11 +359,7 @@ function EditGuessDialog({
   const [away, setAway] = useState("");
   const homeScore = inputToScore(home);
   const awayScore = inputToScore(away);
-  const canSave =
-    homeScore !== null &&
-    awayScore !== null &&
-    homeScore <= 30 &&
-    awayScore <= 30;
+  const canSave = isValidScore(homeScore) && isValidScore(awayScore);
 
   useEffect(() => {
     setHome(scoreToInput(game?.myGuess?.guessHome));
@@ -385,45 +375,27 @@ function EditGuessDialog({
   }
 
   return (
-    <Dialog open={Boolean(game)} onClose={loading ? undefined : onClose} fullWidth>
+    <Dialog
+      open={Boolean(game)}
+      onClose={loading ? undefined : onClose}
+      fullWidth
+    >
       <DialogTitle>Editar palpite</DialogTitle>
       <DialogContent>
         <Stack gap={2} sx={{ pt: 1 }}>
           <Typography color="text.secondary">
             {game?.teamHome} x {game?.teamAway}
           </Typography>
-          <Stack direction="row" gap={1.5}>
-            <TextField
-              fullWidth
-              label={game?.teamHome ?? "Casa"}
-              placeholder="0"
-              value={home}
-              disabled={loading}
-              inputProps={{
-                inputMode: "numeric",
-                maxLength: 2,
-                pattern: "[0-9]*",
-              }}
-              onChange={(event) =>
-                setHome(normalizeScoreInput(event.target.value))
-              }
-            />
-            <TextField
-              fullWidth
-              label={game?.teamAway ?? "Fora"}
-              placeholder="0"
-              value={away}
-              disabled={loading}
-              inputProps={{
-                inputMode: "numeric",
-                maxLength: 2,
-                pattern: "[0-9]*",
-              }}
-              onChange={(event) =>
-                setAway(normalizeScoreInput(event.target.value))
-              }
-            />
-          </Stack>
+          <GuessScoreFields
+            awayLabel={game?.teamAway ?? "Fora"}
+            disabled={loading}
+            draft={{ away, home }}
+            homeLabel={game?.teamHome ?? "Casa"}
+            onChange={(draft) => {
+              setAway(draft.away);
+              setHome(draft.home);
+            }}
+          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ p: 2.5, pt: 1 }}>
@@ -449,23 +421,6 @@ function TeamWithFlag({ name }: { name: string }) {
       <Typography fontWeight={800}>{name}</Typography>
     </Stack>
   );
-}
-
-function scoreToInput(score?: number) {
-  return score === undefined ? "" : String(score);
-}
-
-function inputToScore(value: string) {
-  if (!value) {
-    return null;
-  }
-
-  const score = Number(value);
-  return Number.isInteger(score) && score >= 0 ? score : null;
-}
-
-function normalizeScoreInput(value: string) {
-  return value.replace(/\D/g, "").slice(0, 2);
 }
 
 function ExpandMoreIcon() {

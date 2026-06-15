@@ -1,24 +1,21 @@
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  Button,
-  Chip,
-  Grid,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Grid, Stack, Typography } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "./EmptyState";
+import { GameCardShell } from "./GameCardShell";
 import { GameHeader } from "./GameHeader";
+import { GuessFeedbackChips } from "./GuessFeedbackChips";
+import { GuessScoreFields } from "./GuessScoreFields";
 import { LoadingState } from "./LoadingState";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
-import { guessFeedback, isGuessLocked } from "../services/gameHelpers";
+import { isGuessLocked } from "../services/gameHelpers";
+import {
+  inputToScore,
+  isValidScore,
+  scoreToInput,
+} from "../services/scoreInput";
 import type { Game, Guess } from "../services/types";
-
-const dayMs = 24 * 60 * 60 * 1000;
 
 type GamesResponse = {
   games: Game[];
@@ -78,31 +75,6 @@ export function GuessableGamesSection({
   );
 }
 
-export function upcomingGamesToday(games: Game[], now = Date.now()) {
-  const today = dayKey(new Date(now).toISOString());
-
-  return games
-    .filter((game) => Date.parse(game.startsAt) > now)
-    .filter((game) => dayKey(game.startsAt) === today)
-    .sort(compareByStart);
-}
-
-export function upcomingReminderGames(games: Game[], now = Date.now()) {
-  const limit = now + 3 * dayMs;
-
-  return games
-    .filter((game) => game.status === "scheduled")
-    .filter((game) => {
-      const startsAt = Date.parse(game.startsAt);
-      return startsAt > now && startsAt <= limit;
-    })
-    .sort(compareByStart);
-}
-
-export function missingGuessGames(games: Game[]) {
-  return games.filter((game) => !game.myGuess);
-}
-
 function GuessableGameCard({ game }: { game: Game }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -111,19 +83,13 @@ function GuessableGameCard({ game }: { game: Game }) {
   const homeScore = inputToScore(home);
   const awayScore = inputToScore(away);
   const locked = isGuessLocked(game);
-  const feedback = guessFeedback(game);
   const changed =
     homeScore !== null &&
     awayScore !== null &&
     (homeScore !== game.myGuess?.guessHome ||
       awayScore !== game.myGuess?.guessAway);
   const canSave =
-    !locked &&
-    changed &&
-    homeScore !== null &&
-    awayScore !== null &&
-    homeScore <= 30 &&
-    awayScore <= 30;
+    !locked && changed && isValidScore(homeScore) && isValidScore(awayScore);
 
   const mutation = useMutation({
     mutationFn: (payload: GuessPayload) =>
@@ -172,8 +138,7 @@ function GuessableGameCard({ game }: { game: Game }) {
       queryClient.setQueryData(["games"], context?.previousGames);
       queryClient.setQueryData(["guesses-me"], context?.previousGuesses);
       showToast(
-        error.response?.data?.message ??
-          "Não foi possível salvar o palpite.",
+        error.response?.data?.message ?? "Não foi possível salvar o palpite.",
         "error",
       );
     },
@@ -215,63 +180,30 @@ function GuessableGameCard({ game }: { game: Game }) {
   }
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        borderColor: "rgba(15, 23, 42, .10)",
-        borderRadius: 2,
-        boxShadow: "none",
-        p: { xs: 1.5, sm: 2 },
-      }}
-    >
+    <GameCardShell>
       <Stack gap={1.25}>
         <GameHeader game={game} />
-
-        {feedback && (
-          <Stack direction="row" gap={1} flexWrap="wrap">
-            <Chip label={feedback.label} color={feedback.color} size="small" />
-            {feedback.result !== "pending" && game.myGuess?.points !== null && (
-              <Chip
-                label={`${game.myGuess?.points ?? 0} pontos`}
-                color={(game.myGuess?.points ?? 0) > 0 ? "primary" : "default"}
-                size="small"
-              />
-            )}
-          </Stack>
-        )}
+        <GuessFeedbackChips game={game} />
 
         {locked ? (
           <Alert severity="info">Palpite bloqueado para este jogo.</Alert>
         ) : (
-          <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
-            <TextField
-              label={game.teamHome}
-              placeholder="0"
-              value={home}
-              disabled={mutation.isPending}
-              inputProps={{ inputMode: "numeric", maxLength: 2 }}
-              onChange={(event) => setHome(scoreInput(event.target.value))}
-            />
-            <TextField
-              label={game.teamAway}
-              placeholder="0"
-              value={away}
-              disabled={mutation.isPending}
-              inputProps={{ inputMode: "numeric", maxLength: 2 }}
-              onChange={(event) => setAway(scoreInput(event.target.value))}
-            />
-            <Button
-              variant="contained"
-              disabled={!canSave || mutation.isPending}
-              onClick={save}
-              sx={{ minWidth: { sm: 120 } }}
-            >
-              {mutation.isPending ? "Salvando..." : "Salvar"}
-            </Button>
-          </Stack>
+          <GuessScoreFields
+            awayLabel={game.teamAway}
+            buttonLabel={mutation.isPending ? "Salvando..." : "Salvar"}
+            disabled={mutation.isPending}
+            draft={{ away, home }}
+            homeLabel={game.teamHome}
+            saveDisabled={!canSave || mutation.isPending}
+            onChange={(draft) => {
+              setAway(draft.away);
+              setHome(draft.home);
+            }}
+            onSave={save}
+          />
         )}
       </Stack>
-    </Paper>
+    </GameCardShell>
   );
 }
 
@@ -290,10 +222,7 @@ function SectionTitle({
   );
 }
 
-function upsertGuessCache(
-  current: GuessesResponse | undefined,
-  guess: Guess,
-) {
+function upsertGuessCache(current: GuessesResponse | undefined, guess: Guess) {
   if (!current) {
     return current;
   }
@@ -307,34 +236,4 @@ function upsertGuessCache(
         )
       : [guess, ...current.guesses],
   };
-}
-
-function compareByStart(firstGame: Game, secondGame: Game) {
-  return Date.parse(firstGame.startsAt) - Date.parse(secondGame.startsAt);
-}
-
-function dayKey(value: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function scoreToInput(score?: number) {
-  return score === undefined ? "" : String(score);
-}
-
-function inputToScore(value: string) {
-  if (!value) {
-    return null;
-  }
-
-  const score = Number(value);
-  return Number.isInteger(score) && score >= 0 ? score : null;
-}
-
-function scoreInput(value: string) {
-  return value.replace(/\D/g, "").slice(0, 2);
 }

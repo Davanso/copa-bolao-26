@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -25,7 +25,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
+import { GameCardShell } from "../components/GameCardShell";
 import { GameHeader } from "../components/GameHeader";
+import { GuessScoreBlock } from "../components/GuessScoreBlock";
 import { LoadingState } from "../components/LoadingState";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
@@ -316,7 +318,10 @@ export function GroupDetailsPage() {
       navigate("/groups", { replace: true });
     },
     onError: (err) =>
-      showToast(apiMessage(err, "Não foi possível deletar o grupo."), "error"),
+      showToast(
+        apiMessage(err, "Não foi possível deletar o grupo."),
+        "error",
+      ),
   });
   const removeMember = useMutation({
     mutationFn: (userId: string) =>
@@ -562,8 +567,8 @@ export function GroupDetailsPage() {
             onConfirm={() => deleteGroup.mutate()}
           >
             Você está prestes a deletar o grupo{" "}
-            <strong>{data.group.name}</strong>. Essa ação remove participantes,
-            premiação simbólica e não pode ser desfeita.
+            <strong>{data.group.name}</strong>. Essa ação remove
+            participantes, premiação simbólica e não pode ser desfeita.
           </ConfirmDialog>
 
           <ConfirmDialog
@@ -857,110 +862,78 @@ function RevealedGameCard({
   onToggle: (expanded: boolean) => void;
 }) {
   return (
-    <Accordion
-      disableGutters
-      expanded={expanded}
-      onChange={(_, nextExpanded) => onToggle(nextExpanded)}
-      sx={{
-        border: "1px solid rgba(15, 23, 42, .10)",
-        borderRadius: 2,
-        boxShadow: "none",
-        overflow: "hidden",
-        "&:before": { display: "none" },
-      }}
-    >
-      <AccordionSummary
-        expandIcon={<ExpandMoreIcon />}
+    <GameCardShell>
+      <Accordion
+        disableGutters
+        expanded={expanded}
+        onChange={(_, nextExpanded) => onToggle(nextExpanded)}
         sx={{
-          bgcolor: "rgba(0, 156, 59, .05)",
-          borderBottom: expanded ? "1px solid rgba(15, 23, 42, .08)" : "0",
+          bgcolor: "transparent",
+          boxShadow: "none",
+          "&:before": { display: "none" },
         }}
       >
-        <GameHeader game={game} />
-      </AccordionSummary>
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          sx={{
+            minHeight: 0,
+            p: 0,
+            "& .MuiAccordionSummary-content": {
+              m: 0,
+              minWidth: 0,
+            },
+          }}
+        >
+          <Box sx={{ minWidth: 0, pr: 1.5, width: "100%" }}>
+            <GameHeader game={game} />
+          </Box>
+        </AccordionSummary>
 
-      <AccordionDetails sx={{ p: 2 }}>
-        {guesses.length === 0 ? (
-          <Typography color="text.secondary">
-            Ninguém do grupo palpitou neste jogo.
-          </Typography>
-        ) : (
-          <Grid container spacing={1.25}>
-            {guesses.map((guess) => (
-              <Grid item xs={12} sm={6} md={4} key={guess.id}>
-                <Paper variant="outlined" sx={{ borderRadius: 2, p: 1.25 }}>
-                  <Box
-                    sx={{
-                      alignItems: "center",
-                      columnGap: 1.25,
-                      display: "grid",
-                      gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
-                    }}
-                  >
-                    <Stack
-                      direction="row"
-                      alignItems="center"
-                      gap={1}
-                      minWidth={0}
-                    >
-                      <Avatar src={guess.user.avatarUrl ?? undefined}>
-                        {guess.user.username.slice(0, 2).toUpperCase()}
-                      </Avatar>
-                      <Typography fontWeight={900} noWrap>
-                        {guess.user.username}
-                      </Typography>
-                    </Stack>
-                    <GuessScoreBlock
-                      guessAway={guess.guessAway}
-                      guessHome={guess.guessHome}
-                    />
-                    <Box />
-                  </Box>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-        )}
-      </AccordionDetails>
-    </Accordion>
+        <AccordionDetails sx={{ px: 0, pb: 0, pt: 2 }}>
+          {guesses.length === 0 ? (
+            <Typography color="text.secondary">
+              Ninguém do grupo palpitou neste jogo.
+            </Typography>
+          ) : (
+            <Grid container spacing={1.25}>
+              {guesses.map((guess) => (
+                <Grid item xs={12} sm={6} md={4} key={guess.id}>
+                  <RevealedGuessCard guess={guess} />
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </AccordionDetails>
+      </Accordion>
+    </GameCardShell>
   );
 }
 
-function GuessScoreBlock({
-  guessAway,
-  guessHome,
-}: {
-  guessAway: number;
-  guessHome: number;
-}) {
+function RevealedGuessCard({ guess }: { guess: RevealedGroupGuess }) {
   return (
-    <Box
-      aria-label={`Palpite ${guessHome} a ${guessAway}`}
-      sx={{
-        alignItems: "center",
-        bgcolor: "rgba(0, 156, 60, 0.18)",
-        border: "1px solid rgba(0, 156, 59, .22)",
-        borderRadius: 1.5,
-        color: "primary.main",
-        display: "flex",
-        fontSize: 18,
-        fontWeight: 950,
-        gap: 1,
-        justifyContent: "center",
-        lineHeight: 1,
-        minWidth: 72,
-        px: 1.25,
-        py: 0.9,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <Box component="span">{guessHome}</Box>
-      <Box component="span">x</Box>
-      <Box component="span">{guessAway}</Box>
-    </Box>
+    <GameCardShell>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        gap={1.5}
+      >
+        <Stack direction="row" alignItems="center" gap={1} minWidth={0}>
+          <Avatar src={guess.user.avatarUrl ?? undefined}>
+            {guess.user.username.slice(0, 2).toUpperCase()}
+          </Avatar>
+          <Typography fontWeight={900} noWrap>
+            {guess.user.username}
+          </Typography>
+        </Stack>
+        <GuessScoreBlock
+          guessAway={guess.guessAway}
+          guessHome={guess.guessHome}
+        />
+      </Stack>
+    </GameCardShell>
   );
 }
-
 function ExpandMoreIcon() {
   return (
     <SvgIcon fontSize="medium" viewBox="0 0 24 24">
@@ -1227,7 +1200,7 @@ function PrizeCard({
             <Typography variant="h6">Valor por pessoa</Typography>
             <TextField
               fullWidth
-              label="Quanto cada membro apostou simbólicamente"
+              label="Quanto cada membro apostou simbolicamente"
               placeholder="0"
               value={perMemberValue}
               disabled={saving}
@@ -1424,7 +1397,8 @@ function ScoringRulesCard({
             <Typography fontWeight={900}>Como funciona</Typography>
             <Typography color="text.secondary">
               Placar exato vale a pontuação cheia da fase. Se errar o placar,
-              mas acertar vitória/empate/derrota, vale a pontuação de resultado.
+              mas acertar vitória/empate/derrota, vale a pontuação de
+              resultado.
             </Typography>
           </Stack>
         </Paper>

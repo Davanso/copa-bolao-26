@@ -1,17 +1,18 @@
 import { useEffect, useMemo } from "react";
-import { Alert, Grid, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Grid, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
+import { GameCardShell } from "../components/GameCardShell";
 import { GameHeader } from "../components/GameHeader";
-import {
-  GuessableGamesSection,
-  missingGuessGames,
-  upcomingGamesToday,
-  upcomingReminderGames,
-} from "../components/GuessableGamesSection";
+import { GuessableGamesSection } from "../components/GuessableGamesSection";
 import { LoadingState } from "../components/LoadingState";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
+import {
+  missingGuessGames,
+  upcomingGamesToday,
+  upcomingReminderGames,
+} from "../services/gameFilters";
 import type { Game } from "../services/types";
 
 type GamesResponse = {
@@ -149,19 +150,9 @@ function GameCard({
   game: Game;
 }) {
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        borderColor: featured
-          ? "rgba(0, 156, 59, .26)"
-          : "rgba(15, 23, 42, .10)",
-        borderRadius: 2,
-        boxShadow: "none",
-        p: featured ? { xs: 1.75, sm: 2.25 } : { xs: 1.5, sm: 2 },
-      }}
-    >
+    <GameCardShell featured={featured}>
       <GameHeader game={game} />
-    </Paper>
+    </GameCardShell>
   );
 }
 

@@ -52,7 +52,10 @@ export function guessFeedback(game: Game) {
     };
   }
 
-  if (guess.guessHome === game.scoreHome && guess.guessAway === game.scoreAway) {
+  if (
+    guess.guessHome === game.scoreHome &&
+    guess.guessAway === game.scoreAway
+  ) {
     return {
       color: "success" as const,
       label: "Cravou o placar",
