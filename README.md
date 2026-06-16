@@ -7,7 +7,7 @@ Monorepo com API Express + TypeScript e frontend React/Vite/MUI para um bolão c
 - Frontend: React + Vite + MUI
 - Backend: Node.js + Express + TypeScript
 - Banco: PostgreSQL via Prisma
-- Jogos: tabela via `worldcup26.ir` + horários oficiais locais
+- Jogos: tabela via `worldcup26.ir` + horários oficiais
 - Ao vivo: opcional via `football-data.org`, com fallback local
 
 ## Rodar localmente
