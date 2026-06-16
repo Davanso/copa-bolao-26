@@ -14,13 +14,14 @@ import {
   Tabs,
   Typography,
 } from "@mui/material";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { GameCardShell } from "../components/GameCardShell";
 import { LoadingState } from "../components/LoadingState";
 import { GameHeader } from "../components/GameHeader";
 import { GuessFeedbackChips } from "../components/GuessFeedbackChips";
 import { GuessScoreFields } from "../components/GuessScoreFields";
+import { useGamesQuery } from "../hooks/useAppQueries";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import {
@@ -63,11 +64,8 @@ export function GamesPage() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedStage, setSelectedStage] = useState("group");
-  const { data, error, isLoading } = useQuery<{ games: Game[] }>({
-    queryKey: ["games"],
-    queryFn: async () => (await api.get("/games")).data,
+  const { data, error, isLoading } = useGamesQuery({
     refetchInterval: 30_000,
-    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
   });
   const stageTabs = useMemo(

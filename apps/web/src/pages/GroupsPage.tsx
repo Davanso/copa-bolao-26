@@ -10,10 +10,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
+import { useGroupsMeQuery } from "../hooks/useAppQueries";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import { buildInviteLink } from "../services/inviteFlow";
@@ -39,10 +40,7 @@ export function GroupsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { data, error, isLoading } = useQuery<{ groups: Group[] }>({
-    queryKey: ["groups-me"],
-    queryFn: async () => (await api.get("/groups/me")).data,
-  });
+  const { data, error, isLoading } = useGroupsMeQuery();
   const create = useMutation({
     mutationFn: () =>
       api.post<{ group: Group }>("/groups", { name: name.trim() }),

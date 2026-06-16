@@ -27,8 +27,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
 import { GameCardShell } from "../components/GameCardShell";
 import { GameHeader } from "../components/GameHeader";
-import { GuessScoreBlock } from "../components/GuessScoreBlock";
 import { LoadingState } from "../components/LoadingState";
+import { RevealedGuessCard } from "../components/RevealedGuessCard";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
@@ -318,10 +318,7 @@ export function GroupDetailsPage() {
       navigate("/groups", { replace: true });
     },
     onError: (err) =>
-      showToast(
-        apiMessage(err, "Não foi possível deletar o grupo."),
-        "error",
-      ),
+      showToast(apiMessage(err, "Não foi possível deletar o grupo."), "error"),
   });
   const removeMember = useMutation({
     mutationFn: (userId: string) =>
@@ -567,8 +564,8 @@ export function GroupDetailsPage() {
             onConfirm={() => deleteGroup.mutate()}
           >
             Você está prestes a deletar o grupo{" "}
-            <strong>{data.group.name}</strong>. Essa ação remove
-            participantes, premiação simbólica e não pode ser desfeita.
+            <strong>{data.group.name}</strong>. Essa ação remove participantes,
+            premiação simbólica e não pode ser desfeita.
           </ConfirmDialog>
 
           <ConfirmDialog
@@ -898,7 +895,12 @@ function RevealedGameCard({
             <Grid container spacing={1.25}>
               {guesses.map((guess) => (
                 <Grid item xs={12} sm={6} md={4} key={guess.id}>
-                  <RevealedGuessCard guess={guess} />
+                  <RevealedGuessCard
+                    avatarUrl={guess.user.avatarUrl}
+                    guessAway={guess.guessAway}
+                    guessHome={guess.guessHome}
+                    username={guess.user.username}
+                  />
                 </Grid>
               ))}
             </Grid>
@@ -909,31 +911,6 @@ function RevealedGameCard({
   );
 }
 
-function RevealedGuessCard({ guess }: { guess: RevealedGroupGuess }) {
-  return (
-    <GameCardShell>
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        gap={1.5}
-      >
-        <Stack direction="row" alignItems="center" gap={1} minWidth={0}>
-          <Avatar src={guess.user.avatarUrl ?? undefined}>
-            {guess.user.username.slice(0, 2).toUpperCase()}
-          </Avatar>
-          <Typography fontWeight={900} noWrap>
-            {guess.user.username}
-          </Typography>
-        </Stack>
-        <GuessScoreBlock
-          guessAway={guess.guessAway}
-          guessHome={guess.guessHome}
-        />
-      </Stack>
-    </GameCardShell>
-  );
-}
 function ExpandMoreIcon() {
   return (
     <SvgIcon fontSize="medium" viewBox="0 0 24 24">
@@ -1397,8 +1374,7 @@ function ScoringRulesCard({
             <Typography fontWeight={900}>Como funciona</Typography>
             <Typography color="text.secondary">
               Placar exato vale a pontuação cheia da fase. Se errar o placar,
-              mas acertar vitória/empate/derrota, vale a pontuação de
-              resultado.
+              mas acertar vitória/empate/derrota, vale a pontuação de resultado.
             </Typography>
           </Stack>
         </Paper>

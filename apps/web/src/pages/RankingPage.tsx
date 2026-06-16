@@ -12,10 +12,9 @@ import {
   Tabs,
   Typography,
 } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
-import { api } from "../services/api";
+import { useGroupRankingQuery, useGroupsMeQuery } from "../hooks/useAppQueries";
 import type { Group, RankingItem } from "../services/types";
 
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -77,16 +76,8 @@ export function RankingPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() =>
     localStorage.getItem(selectedRankingGroupStorageKey),
   );
-  const groupsQuery = useQuery<{ groups: Group[] }>({
-    queryKey: ["groups-me"],
-    queryFn: async () => (await api.get("/groups/me")).data,
-  });
-  const rankingQuery = useQuery<{ ranking: RankingItem[] }>({
-    queryKey: ["group-ranking", selectedGroupId],
-    queryFn: async () =>
-      (await api.get(`/groups/${selectedGroupId}/ranking`)).data,
-    enabled: Boolean(selectedGroupId),
-  });
+  const groupsQuery = useGroupsMeQuery();
+  const rankingQuery = useGroupRankingQuery(selectedGroupId);
 
   useEffect(() => {
     const groups = groupsQuery.data?.groups ?? [];

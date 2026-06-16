@@ -27,6 +27,19 @@ export function missingGuessGames(games: Game[]) {
   return games.filter((game) => !game.myGuess);
 }
 
+export function liveGamesWithGuesses(liveGames: Game[], games: Game[]) {
+  const gamesById = new Map(games.map((game) => [game.id, game]));
+  const sourceGames = liveGames.length
+    ? liveGames
+    : games.filter((game) => game.status === "live");
+
+  return sourceGames.map((game) => ({
+    ...game,
+    ...gamesById.get(game.id),
+    status: "live" as const,
+  }));
+}
+
 function compareByStart(firstGame: Game, secondGame: Game) {
   return Date.parse(firstGame.startsAt) - Date.parse(secondGame.startsAt);
 }

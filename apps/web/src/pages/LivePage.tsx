@@ -1,14 +1,16 @@
 import { useEffect, useMemo } from "react";
 import { Alert, Grid, Stack, Typography } from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
 import { EmptyState } from "../components/EmptyState";
 import { GameCardShell } from "../components/GameCardShell";
 import { GameHeader } from "../components/GameHeader";
 import { GuessableGamesSection } from "../components/GuessableGamesSection";
 import { LoadingState } from "../components/LoadingState";
+import { RevealedGuessCard } from "../components/RevealedGuessCard";
+import { useGamesQuery, useLiveGamesQuery } from "../hooks/useAppQueries";
+import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
-import { api } from "../services/api";
 import {
+  liveGamesWithGuesses,
   missingGuessGames,
   upcomingGamesToday,
   upcomingReminderGames,
@@ -23,19 +25,17 @@ const todayReminderStoragePrefix = "bolao.dailyGuessReminder";
 
 export function LivePage() {
   const { showToast } = useToast();
-  const liveQuery = useQuery<{ liveGames: Game[] }>({
-    queryKey: ["live"],
-    queryFn: async () => (await api.get("/live-games")).data,
+  const liveQuery = useLiveGamesQuery();
+  const gamesQuery = useGamesQuery({
     refetchInterval: 30_000,
-    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
-  });
-  const gamesQuery = useQuery<GamesResponse>({
-    queryKey: ["games"],
-    queryFn: async () => (await api.get("/games")).data,
     staleTime: 60_000,
   });
   const games = gamesQuery.data?.games ?? [];
+  const liveGames = useMemo(
+    () => liveGamesWithGuesses(liveQuery.data?.liveGames ?? [], games),
+    [games, liveQuery.data?.liveGames],
+  );
   const todayGames = useMemo(() => upcomingGamesToday(games), [games]);
   const reminderGames = useMemo(() => upcomingReminderGames(games), [games]);
   const missingTodayGuesses = useMemo(
@@ -79,7 +79,7 @@ export function LivePage() {
       <LiveNowSection
         error={liveQuery.error}
         isLoading={liveQuery.isLoading}
-        liveGames={liveQuery.data?.liveGames ?? []}
+        liveGames={liveGames}
       />
 
       <GuessableGamesSection
@@ -115,10 +115,7 @@ function LiveNowSection({
   return (
     <Stack gap={1.5}>
       {isLoading && (
-        <LoadingState
-          title="Buscando jogos ao vivo"
-          description=""
-        />
+        <LoadingState title="Buscando jogos ao vivo" description="" />
       )}
       {Boolean(error) && (
         <Alert severity="error">Não foi possível carregar jogos ao vivo.</Alert>
@@ -149,25 +146,26 @@ function GameCard({
   featured?: boolean;
   game: Game;
 }) {
+  const { user } = useAuth();
+  const guess = game.myGuess;
+
   return (
     <GameCardShell featured={featured}>
-      <GameHeader game={game} />
+      <Stack gap={1.5}>
+        <GameHeader game={game} />
+        {guess && (
+          <Stack gap={1}>
+            <Typography variant="subtitle2">Seu palpite</Typography>
+            <RevealedGuessCard
+              avatarUrl={user?.avatarUrl}
+              guessAway={guess.guessAway}
+              guessHome={guess.guessHome}
+              username={user?.username ?? "Você"}
+            />
+          </Stack>
+        )}
+      </Stack>
     </GameCardShell>
-  );
-}
-
-function SectionTitle({
-  description,
-  title,
-}: {
-  description: string;
-  title: string;
-}) {
-  return (
-    <Stack>
-      <Typography variant="h5">{title}</Typography>
-      <Typography color="text.secondary">{description}</Typography>
-    </Stack>
   );
 }
 

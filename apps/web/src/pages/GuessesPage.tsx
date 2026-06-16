@@ -17,12 +17,13 @@ import {
   Tabs,
   Typography,
 } from "@mui/material";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { GuessableGamesSection } from "../components/GuessableGamesSection";
 import { GuessFeedbackChips } from "../components/GuessFeedbackChips";
 import { GuessScoreBlock } from "../components/GuessScoreBlock";
 import { GuessScoreFields } from "../components/GuessScoreFields";
 import { TeamFlag } from "../components/TeamFlag";
+import { useGamesQuery } from "../hooks/useAppQueries";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
 import { upcomingGamesToday } from "../services/gameFilters";
@@ -45,9 +46,7 @@ import type { Game, Guess } from "../services/types";
 
 const expandedGuessesStorageKey = "bolao.guesses.expandedGroups";
 
-type GamesResponse = {
-  games: Game[];
-};
+type GamesResponse = { games: Game[] };
 
 export function GuessesPage() {
   const queryClient = useQueryClient();
@@ -57,11 +56,9 @@ export function GuessesPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() =>
     readStringSet(expandedGuessesStorageKey),
   );
-  const gamesQuery = useQuery<GamesResponse>({
-    queryKey: ["games"],
-    queryFn: async () => (await api.get("/games")).data,
+  const gamesQuery = useGamesQuery({
     refetchOnWindowFocus: true,
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
   const games = gamesQuery.data?.games ?? [];
   const todayGames = useMemo(() => upcomingGamesToday(games), [games]);
