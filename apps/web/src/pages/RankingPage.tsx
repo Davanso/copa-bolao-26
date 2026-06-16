@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Avatar,
@@ -26,20 +26,29 @@ const podiumConfig = [
   {
     accent: "#f6c343",
     emoji: "🥇",
+    avatarSize: 48,
     height: 172,
+    iconSize: 34,
     label: "Campeão",
+    padding: 2,
   },
   {
     accent: "#8fb3ff",
     emoji: "🥈",
+    avatarSize: 44,
     height: 142,
+    iconSize: 32,
     label: "Vice",
+    padding: 2,
   },
   {
     accent: "#da8c4b",
     emoji: "🥉",
-    height: 122,
+    avatarSize: 38,
+    height: 104,
+    iconSize: 26,
     label: "Terceiro",
+    padding: 1.5,
   },
 ];
 
@@ -247,11 +256,16 @@ function PodiumCard({
         overflow: "hidden",
       }}
     >
-      <Stack alignItems="center" gap={1.25} sx={{ p: 2 }}>
-        <Typography fontSize={34}>{config.emoji}</Typography>
+      <Stack alignItems="center" gap={1.25} sx={{ p: config.padding }}>
+        <Typography fontSize={config.iconSize}>{config.emoji}</Typography>
         <Avatar
           src={item.avatarUrl ?? undefined}
-          sx={{ bgcolor: config.accent, color: "#10203f" }}
+          sx={{
+            bgcolor: config.accent,
+            color: "#10203f",
+            height: config.avatarSize,
+            width: config.avatarSize,
+          }}
         >
           {initials(item.username)}
         </Avatar>
@@ -259,21 +273,19 @@ function PodiumCard({
           <Typography variant="h6">{item.username}</Typography>
           <Typography color="text.secondary">{config.label}</Typography>
         </Box>
-        <Chip label={`${item.totalPoints} pontos`} color="primary" />
+        <Chip label={`${item.totalPoints} pontos no total`} color="primary" />
       </Stack>
       <Box
         sx={{
           bgcolor: `${config.accent}24`,
           borderTop: `1px solid ${config.accent}55`,
-          minHeight: { xs: 90, md: config.height },
+          minHeight: { xs: 118, md: config.height },
           p: 2,
           textAlign: "center",
         }}
       >
         <Typography variant="h4">#{position}</Typography>
-        <Typography color="text.secondary">
-          {item.exactScores} cravados · {item.scoredGuesses} pontuados
-        </Typography>
+        <RankingPointsBreakdown item={item} align="center" />
         {prize > 0 && (
           <Typography color="secondary.main" fontWeight={800}>
             {currency.format(prize)}
@@ -283,7 +295,6 @@ function PodiumCard({
     </Paper>
   );
 }
-
 function ScoringRulesSummary({ group }: { group: Group }) {
   const [selectedTab, setSelectedTab] = useState(scoringRuleTabs[0].id);
   const selectedRuleTab =
@@ -383,10 +394,7 @@ function RankingRow({
           <Typography variant="h6">{item.username}</Typography>
         </Stack>
         <Stack alignItems={{ xs: "flex-start", sm: "flex-end" }}>
-          <Typography>
-            {item.totalPoints} pontos · {item.exactScores} cravados ·{" "}
-            {item.scoredGuesses} pontuados
-          </Typography>
+          <RankingPointsBreakdown item={item} align="right" />
           {prize > 0 && (
             <Typography color="secondary.main">
               Premiação simbólica: {currency.format(prize)}
@@ -395,6 +403,26 @@ function RankingRow({
         </Stack>
       </Stack>
     </Paper>
+  );
+}
+function RankingPointsBreakdown({
+  align = "left",
+  item,
+}: {
+  align?: "center" | "left" | "right";
+  item: RankingItem;
+}) {
+  const resultOnlyHits = Math.max(item.scoredGuesses - item.exactScores, 0);
+
+  return (
+    <Stack gap={0.25} textAlign={{ xs: "left", sm: align }}>
+      <Typography color="text.secondary" variant="body2">
+        {resultOnlyHits} resultado{resultOnlyHits === 1 ? "" : "s"} acertado
+        {resultOnlyHits === 1 ? "" : "s"} + {item.exactScores} placar
+        {item.exactScores === 1 ? "" : "es"} cravado
+        {item.exactScores === 1 ? "" : "s"}
+      </Typography>
+    </Stack>
   );
 }
 
