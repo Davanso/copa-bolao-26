@@ -15,8 +15,13 @@ describe("flagUrlForTeam", () => {
 
   it("resolve aliases de selecoes com nomes alternativos", () => {
     expect(flagUrlForTeam("Austria")).toContain("/at.png");
+    expect(flagUrlForTeam("AUT")).toContain("/at.png");
     expect(flagUrlForTeam("Jordan")).toContain("/jo.png");
+    expect(flagUrlForTeam("JOR")).toContain("/jo.png");
     expect(flagUrlForTeam("Gana")).toContain("/gh.png");
+    expect(flagUrlForTeam("GHA")).toContain("/gh.png");
     expect(flagUrlForTeam("RD Congo")).toContain("/cd.png");
+    expect(flagUrlForTeam("COD")).toContain("/cd.png");
+    expect(flagUrlForTeam("Congo DR")).toContain("/cd.png");
   });
 });

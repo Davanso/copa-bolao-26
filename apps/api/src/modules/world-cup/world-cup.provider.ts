@@ -1,8 +1,9 @@
-import type { Game, GameStatus } from "../../db/types.js";
+﻿import type { Game, GameStatus } from "../../db/types.js";
 import {
   officialGamesAsMocks,
   officialStartsAtForGame,
 } from "./official-schedule.js";
+import { translateTeam } from "./team-translations.js";
 
 const providerUrl =
   process.env.WORLD_CUP_API_URL ?? "https://worldcup26.ir/get/games";
@@ -15,57 +16,6 @@ let cachedAt = 0;
 let cachedGames: Game[] = [];
 
 const cacheTtlMs = 60_000;
-
-const teamTranslations: Record<string, string> = {
-  Algeria: "Argélia",
-  Argentina: "Argentina",
-  Australia: "Austrália",
-  Belgium: "Bélgica",
-  Bosnia: "Bósnia",
-  "Bosnia and Herzegovina": "Bósnia e Herzegovina",
-  Brazil: "Brasil",
-  Canada: "Canadá",
-  "Cape Verde": "Cabo Verde",
-  Colombia: "Colômbia",
-  Croatia: "Croácia",
-  "Czech Republic": "República Tcheca",
-  Curaçao: "Curaçao",
-  Ecuador: "Equador",
-  Egypt: "Egito",
-  England: "Inglaterra",
-  France: "França",
-  Germany: "Alemanha",
-  Ghana: "Gana",
-  Haiti: "Haiti",
-  Iran: "Irã",
-  Iraq: "Iraque",
-  "Ivory Coast": "Costa do Marfim",
-  Japan: "Japão",
-  Mexico: "México",
-  Morocco: "Marrocos",
-  Netherlands: "Holanda",
-  "New Zealand": "Nova Zelândia",
-  Norway: "Noruega",
-  Panama: "Panamá",
-  Paraguay: "Paraguai",
-  Portugal: "Portugal",
-  Qatar: "Catar",
-  "DR Congo": "RD Congo",
-  "Democratic Republic of the Congo": "RD Congo",
-  "Saudi Arabia": "Arábia Saudita",
-  Scotland: "Escócia",
-  Senegal: "Senegal",
-  "South Africa": "África do Sul",
-  "South Korea": "Coreia do Sul",
-  Spain: "Espanha",
-  Sweden: "Suécia",
-  Switzerland: "Suíça",
-  Tunisia: "Tunísia",
-  Turkey: "Turquia",
-  "United States": "Estados Unidos",
-  Uruguay: "Uruguai",
-  Uzbekistan: "Uzbequistão",
-};
 
 type WorldCupApiGame = {
   _id?: string;
@@ -143,24 +93,6 @@ function normalizeGame(game: WorldCupApiGame): Game {
     startsAt:
       officialStartsAtForGame(normalizedGame) ?? normalizedGame.startsAt,
   };
-}
-
-function translateTeam(value?: string) {
-  if (!value) {
-    return "A definir";
-  }
-
-  return teamTranslations[value] ?? translatePlaceholder(value);
-}
-
-function translatePlaceholder(value: string) {
-  return value
-    .replace("Winner", "Vencedor")
-    .replace("Loser", "Perdedor")
-    .replace("Runner-up", "2º lugar")
-    .replace("Group", "Grupo")
-    .replace("Match", "Jogo")
-    .replace("3rd", "3º lugar");
 }
 
 function normalizeStatus(game: WorldCupApiGame): GameStatus {

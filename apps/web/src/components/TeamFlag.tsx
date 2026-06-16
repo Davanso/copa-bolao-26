@@ -1,5 +1,5 @@
 import { Box, CircularProgress, Tooltip } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { flagUrlForTeam } from "../services/teamFlags";
 
 export function TeamFlag({ name }: { name: string }) {
@@ -7,6 +7,10 @@ export function TeamFlag({ name }: { name: string }) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(
     flagUrl ? "loading" : "error",
   );
+
+  useEffect(() => {
+    setStatus(flagUrl ? "loading" : "error");
+  }, [flagUrl]);
 
   if (!flagUrl || status === "error") {
     return (

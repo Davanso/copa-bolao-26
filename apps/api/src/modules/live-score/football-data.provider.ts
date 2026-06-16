@@ -1,5 +1,6 @@
-import type { Game, GameStatus } from "../../db/types.js";
+﻿import type { Game, GameStatus } from "../../db/types.js";
 import { officialStartsAtForGame } from "../world-cup/official-schedule.js";
+import { translateTeam } from "../world-cup/team-translations.js";
 
 const footballDataBaseUrl =
   process.env.FOOTBALL_DATA_API_URL ?? "https://api.football-data.org/v4";
@@ -152,16 +153,4 @@ function normalizeGroup(group?: string) {
 
 function scoreValue(value?: number | null) {
   return typeof value === "number" ? value : null;
-}
-
-function translateTeam(value: string) {
-  const translations: Record<string, string> = {
-    Brazil: "Brasil",
-    Canada: "Canadá",
-    Mexico: "México",
-    USA: "Estados Unidos",
-    "United States": "Estados Unidos",
-  };
-
-  return translations[value] ?? value;
 }
