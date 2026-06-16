@@ -12,7 +12,7 @@ export function upcomingGamesToday(games: Game[], now = Date.now()) {
 }
 
 export function upcomingReminderGames(games: Game[], now = Date.now()) {
-  const limit = now + 3 * dayMs;
+  const limit = now + 2 * dayMs;
 
   return games
     .filter((game) => game.status === "scheduled")
@@ -33,11 +33,46 @@ export function liveGamesWithGuesses(liveGames: Game[], games: Game[]) {
     ? liveGames
     : games.filter((game) => game.status === "live");
 
-  return sourceGames.map((game) => ({
-    ...game,
-    ...gamesById.get(game.id),
-    status: "live" as const,
-  }));
+  return sourceGames.map((game) => {
+    const matchingGame =
+      gamesById.get(game.id) ?? findMatchingGame(game, games);
+
+    return {
+      ...game,
+      myGuess: matchingGame?.myGuess ?? game.myGuess,
+      status: "live" as const,
+    };
+  });
+}
+
+function findMatchingGame(liveGame: Game, games: Game[]) {
+  const liveStartsAt = Date.parse(liveGame.startsAt);
+
+  return games.find((game) => {
+    const sameTeams =
+      normalizeTeam(game.teamHome) === normalizeTeam(liveGame.teamHome) &&
+      normalizeTeam(game.teamAway) === normalizeTeam(liveGame.teamAway);
+
+    if (!sameTeams) {
+      return false;
+    }
+
+    const startsAt = Date.parse(game.startsAt);
+
+    if (!Number.isFinite(liveStartsAt) || !Number.isFinite(startsAt)) {
+      return true;
+    }
+
+    return Math.abs(startsAt - liveStartsAt) <= 3 * 60 * 60 * 1000;
+  });
+}
+
+function normalizeTeam(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 function compareByStart(firstGame: Game, secondGame: Game) {

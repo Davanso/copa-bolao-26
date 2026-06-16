@@ -47,4 +47,32 @@ describe("liveGamesWithGuesses", () => {
       cachedLiveGame,
     ]);
   });
+
+  it("casa football-data com jogo principal por times e horario", () => {
+    const liveGame = game({
+      id: "football-data-537364",
+      status: "live",
+      teamAway: "México",
+      teamHome: "Brasil",
+    });
+    const cachedGame = game({
+      id: "worldcup-1",
+      myGuess: {
+        gameId: "worldcup-1",
+        guessAway: 0,
+        guessHome: 1,
+        id: "guess-1",
+        points: null,
+      },
+      teamAway: "México",
+      teamHome: "Brasil",
+    });
+
+    expect(
+      liveGamesWithGuesses([liveGame], [cachedGame])[0].myGuess,
+    ).toMatchObject({
+      guessAway: 0,
+      guessHome: 1,
+    });
+  });
 });
