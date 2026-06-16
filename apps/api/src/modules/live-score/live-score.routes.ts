@@ -1,15 +1,20 @@
 import { Router } from "express";
 import { requireAuth } from "../../shared/auth/auth.js";
 import { getWorldCupGames } from "../world-cup/world-cup.provider.js";
-import { getFootballDataLiveGames } from "./football-data.provider.js";
+import {
+  footballDataConfigStatus,
+  getFootballDataLiveGames,
+} from "./football-data.provider.js";
 
 export const liveScoreRouter = Router();
 
 liveScoreRouter.get("/", requireAuth, async (_req, res) => {
   const footballDataLiveGames = await tryFootballDataLiveGames();
+  const footballData = footballDataConfigStatus();
 
   if (footballDataLiveGames?.length) {
     res.json({
+      footballData,
       liveGames: footballDataLiveGames.map((game) => ({
         ...game,
         events: [],
@@ -25,6 +30,7 @@ liveScoreRouter.get("/", requireAuth, async (_req, res) => {
 
   if (!liveGames.length && footballDataLiveGames !== null) {
     res.json({
+      footballData,
       liveGames: [],
       source: "football-data.org",
       syncedAt: new Date().toISOString(),
@@ -33,6 +39,7 @@ liveScoreRouter.get("/", requireAuth, async (_req, res) => {
   }
 
   res.json({
+    footballData,
     liveGames,
     source: "worldcup26.ir",
     syncedAt: new Date().toISOString(),

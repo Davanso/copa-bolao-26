@@ -21,6 +21,12 @@ services:
         sync: false
       - key: WORLD_CUP_API_URL
         value: https://worldcup26.ir/get/games
+      - key: FOOTBALL_DATA_API_TOKEN
+        sync: false
+      - key: FOOTBALL_DATA_COMPETITION
+        value: WC
+      - key: FOOTBALL_DATA_CACHE_TTL_MS
+        value: 70000
       - key: LIVE_SCORE_ENABLE_SCHEDULE_FALLBACK
         value: false
       - key: ADMIN_USERNAME

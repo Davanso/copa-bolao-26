@@ -3,11 +3,6 @@ import { officialStartsAtForGame } from "../world-cup/official-schedule.js";
 
 const footballDataBaseUrl =
   process.env.FOOTBALL_DATA_API_URL ?? "https://api.football-data.org/v4";
-const footballDataCompetition = process.env.FOOTBALL_DATA_COMPETITION ?? "WC";
-const footballDataToken = process.env.FOOTBALL_DATA_API_TOKEN;
-const footballDataCacheTtlMs = Number(
-  process.env.FOOTBALL_DATA_CACHE_TTL_MS ?? 70_000,
-);
 
 let cachedAt = 0;
 let cachedLiveGames: Game[] | null = null;
@@ -35,21 +30,23 @@ type FootballDataResponse = {
 };
 
 export async function getFootballDataLiveGames() {
-  if (!footballDataToken) {
+  const config = footballDataConfig();
+
+  if (!config.token) {
     return null;
   }
 
-  if (cachedLiveGames && Date.now() - cachedAt <= footballDataCacheTtlMs) {
+  if (cachedLiveGames && Date.now() - cachedAt <= config.cacheTtlMs) {
     return cachedLiveGames;
   }
 
   const url = new URL(
-    `${footballDataBaseUrl}/competitions/${footballDataCompetition}/matches`,
+    `${footballDataBaseUrl}/competitions/${config.competition}/matches`,
   );
   url.searchParams.set("status", "LIVE,IN_PLAY,PAUSED");
 
   const response = await fetch(url, {
-    headers: { "X-Auth-Token": footballDataToken },
+    headers: { "X-Auth-Token": config.token },
   });
 
   if (!response.ok) {
@@ -62,6 +59,24 @@ export async function getFootballDataLiveGames() {
   cachedAt = Date.now();
 
   return cachedLiveGames;
+}
+
+export function footballDataConfigStatus() {
+  const config = footballDataConfig();
+
+  return {
+    cacheTtlMs: config.cacheTtlMs,
+    competition: config.competition,
+    enabled: Boolean(config.token),
+  };
+}
+
+function footballDataConfig() {
+  return {
+    cacheTtlMs: Number(process.env.FOOTBALL_DATA_CACHE_TTL_MS ?? 70_000),
+    competition: process.env.FOOTBALL_DATA_COMPETITION ?? "WC",
+    token: process.env.FOOTBALL_DATA_API_TOKEN,
+  };
 }
 
 function normalizeFootballDataMatch(match: FootballDataMatch): Game {
