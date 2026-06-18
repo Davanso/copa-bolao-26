@@ -45,6 +45,7 @@ Crie um Postgres (recomendado: Neon) e configure:
 ```bash
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
 JWT_SECRET="troque-esse-segredo"
+JWT_EXPIRES_IN="30d"
 ```
 
 Depois rode:
@@ -75,6 +76,7 @@ O usuário admin é criado automaticamente ao iniciar a API se não existir.
 - Variáveis:
   - `DATABASE_URL`
   - `JWT_SECRET`
+  - `JWT_EXPIRES_IN=30d`
   - `WEB_ORIGIN=https://seu-front.vercel.app`
   - `WORLD_CUP_API_URL=https://worldcup26.ir/get/games`
   - `FOOTBALL_DATA_API_TOKEN=seu-token-football-data`
