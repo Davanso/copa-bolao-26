@@ -12,6 +12,7 @@
   belgica: "be",
   belgium: "be",
   bosnia: "ba",
+  "bosnia h": "ba",
   "bosnia and herzegovina": "ba",
   "bosnia e herzegovina": "ba",
   bih: "ba",
@@ -101,6 +102,8 @@ function normalizeTeamName(value: string) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
     .toLowerCase()
-    .trim();
+    .trim()
+    .replace(/\s+/g, " ");
 }

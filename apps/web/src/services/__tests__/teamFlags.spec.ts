@@ -11,6 +11,8 @@ describe("flagUrlForTeam", () => {
     expect(flagUrlForTeam("South Africa")).toContain("/za.png");
     expect(flagUrlForTeam("Canadá")).toContain("/ca.png");
     expect(flagUrlForTeam("Canada")).toContain("/ca.png");
+    expect(flagUrlForTeam("Bosnia-H.")).toContain("/ba.png");
+    expect(flagUrlForTeam("Bósnia e Herzegovina")).toContain("/ba.png");
   });
 
   it("resolve aliases de selecoes com nomes alternativos", () => {

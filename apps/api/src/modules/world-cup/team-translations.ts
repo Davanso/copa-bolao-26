@@ -6,6 +6,8 @@
   AUT: "Áustria",
   Belgium: "Bélgica",
   Bosnia: "Bósnia",
+  "Bosnia-H.": "Bósnia e Herzegovina",
+  "Bosnia-H": "Bósnia e Herzegovina",
   "Bosnia and Herzegovina": "Bósnia e Herzegovina",
   Brazil: "Brasil",
   BRA: "Brasil",

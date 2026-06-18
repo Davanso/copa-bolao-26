@@ -5,6 +5,7 @@ describe("translateTeam", () => {
   it("traduz nomes e siglas vindas da football-data", () => {
     expect(translateTeam("Canada")).toBe("Canadá");
     expect(translateTeam("Mexico")).toBe("México");
+    expect(translateTeam("Bosnia-H.")).toBe("Bósnia e Herzegovina");
     expect(translateTeam("Austria")).toBe("Áustria");
     expect(translateTeam("AUT")).toBe("Áustria");
     expect(translateTeam("Jordan")).toBe("Jordânia");

@@ -32,6 +32,7 @@ import { RevealedGuessCard } from "../components/RevealedGuessCard";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { api } from "../services/api";
+import { perMemberPrizeValue } from "../services/symbolicPrize";
 import {
   compressImageToDataUrl,
   ImageUploadError,
@@ -1068,7 +1069,7 @@ function PrizeCard({
   }) => void;
 }) {
   const [perMemberValue, setPerMemberValue] = useState(() =>
-    String(commonContributionValue(members)),
+    String(perMemberPrizeValue(group, members)),
   );
   const [rules, setRules] = useState<PrizeRule[]>(
     group.prizeRules?.length
@@ -1081,7 +1082,7 @@ function PrizeCard({
   );
 
   useEffect(() => {
-    setPerMemberValue(String(commonContributionValue(members)));
+    setPerMemberValue(String(perMemberPrizeValue(group, members)));
     setRules(
       group.prizeRules?.length
         ? group.prizeRules
@@ -1101,7 +1102,7 @@ function PrizeCard({
     [rules],
   );
   const prizeDirty = useMemo(() => {
-    const initialValue = String(commonContributionValue(members));
+    const initialValue = String(perMemberPrizeValue(group, members));
     const initialRules = group.prizeRules?.length
       ? group.prizeRules
       : [
@@ -1114,7 +1115,7 @@ function PrizeCard({
       perMemberValue !== initialValue ||
       JSON.stringify(rules) !== JSON.stringify(initialRules)
     );
-  }, [group.prizeRules, members, perMemberValue, rules]);
+  }, [group, members, perMemberValue, rules]);
 
   useEffect(() => {
     localStorage.setItem(unsavedPrizeStorageKey, prizeDirty ? "true" : "false");
@@ -1284,19 +1285,6 @@ function PrizeCard({
 
 function contributionToNumber(value: string) {
   return value ? Number(value) : 0;
-}
-
-function commonContributionValue(members: GroupMember[]) {
-  if (!members.length) {
-    return 0;
-  }
-
-  const firstContribution = members[0].symbolicContribution ?? 0;
-  const sameForEveryone = members.every(
-    (member) => (member.symbolicContribution ?? 0) === firstContribution,
-  );
-
-  return sameForEveryone ? firstContribution : 0;
 }
 
 function ScoringRulesCard({

@@ -87,15 +87,37 @@ groupsRouter.post("/join", requireAuth, async (req, res) => {
     throw new HttpError(409, "Você já participa deste grupo");
   }
 
-  await prisma.groupMember.create({
-    data: {
-      groupId: group.id,
-      userId: req.user!.id,
-      role: "member",
-    },
+  const currentMembers = await prisma.groupMember.findMany({
+    where: { groupId: group.id },
+  });
+  const defaultContribution = perMemberPrizeValue(
+    group.symbolicPrizeTotal,
+    currentMembers.map((member) => member.symbolicContribution),
+  );
+
+  const updatedGroup = await prisma.$transaction(async (transaction) => {
+    await transaction.groupMember.create({
+      data: {
+        groupId: group.id,
+        userId: req.user!.id,
+        role: "member",
+        symbolicContribution: defaultContribution,
+      },
+    });
+
+    return transaction.bolaoGroup.update({
+      where: { id: group.id },
+      data: {
+        symbolicPrizeTotal: group.symbolicPrizeTotal + defaultContribution,
+      },
+      include: {
+        prizeRules: { orderBy: { position: "asc" } },
+        scoringRules: { orderBy: { stage: "asc" } },
+      },
+    });
   });
 
-  res.status(201).json({ group });
+  res.status(201).json({ group: updatedGroup });
 });
 
 groupsRouter.get("/invite/:inviteCode", async (req, res) => {
@@ -440,6 +462,31 @@ async function ensureMember(groupId: string, userId: string) {
   }
 
   return { group, member };
+}
+
+export function perMemberPrizeValue(total: number, contributions: number[]) {
+  if (!contributions.length) {
+    return 0;
+  }
+
+  const positiveContributions = contributions.filter((amount) => amount > 0);
+
+  if (positiveContributions.length) {
+    const firstPositiveContribution = positiveContributions[0];
+    const samePositiveContribution = positiveContributions.every(
+      (amount) => amount === firstPositiveContribution,
+    );
+
+    if (samePositiveContribution) {
+      return firstPositiveContribution;
+    }
+  }
+
+  if (total > 0) {
+    return Math.round(total / contributions.length);
+  }
+
+  return 0;
 }
 
 async function ensureOwner(groupId: string, userId: string) {
