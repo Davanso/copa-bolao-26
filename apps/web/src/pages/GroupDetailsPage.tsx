@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -724,7 +724,8 @@ function RevealedGuessesCard({
   games: RevealedGroupGame[];
   loading: boolean;
 }) {
-  const [selectedStage, setSelectedStage] = useState("group");
+  const [selectedStage, setSelectedStage] = useState("live");
+  const autoSelectedLive = useRef(false);
   const stageTabs = useMemo(() => buildRevealedStageTabs(games), [games]);
   const selectedTab =
     stageTabs.find((tab) => tab.id === selectedStage) ?? stageTabs[0];
@@ -739,6 +740,18 @@ function RevealedGuessesCard({
   useEffect(() => {
     if (!stageTabs.length) {
       return;
+    }
+
+    const liveTab = stageTabs.find((tab) => tab.id === "live");
+
+    if (liveTab && !autoSelectedLive.current) {
+      autoSelectedLive.current = true;
+      setSelectedStage("live");
+      return;
+    }
+
+    if (!liveTab) {
+      autoSelectedLive.current = false;
     }
 
     if (!stageTabs.some((tab) => tab.id === selectedStage)) {
@@ -826,7 +839,12 @@ function RevealedGuessesCard({
               justifyContent="space-between"
               alignItems="center"
             >
-              <Typography variant="h6">{groupName}</Typography>
+              <Stack direction="row" gap={1} alignItems="center">
+                <Typography variant="h6">{groupName}</Typography>
+                {groupGames.some(({ game }) => game.status === "live") && (
+                  <Chip color="success" label="Ao vivo" size="small" />
+                )}
+              </Stack>
               <Typography color="text.secondary">
                 {groupGames.length} jogo{groupGames.length === 1 ? "" : "s"}
               </Typography>
@@ -948,6 +966,11 @@ type RevealedStageTab = {
 
 const revealedStageTabsConfig = [
   {
+    id: "live",
+    label: "Ao vivo",
+    match: ({ game }: RevealedGroupGame) => game.status === "live",
+  },
+  {
     id: "group",
     label: "Fase de grupos",
     match: ({ game }: RevealedGroupGame) => game.stage === "Fase de grupos",
@@ -1003,10 +1026,7 @@ function groupRevealedGamesForTab(tab?: RevealedStageTab) {
   const grouped = new Map<string, RevealedGroupGame[]>();
 
   for (const item of tab.games) {
-    const label =
-      tab.id === "group" && item.game.groupName
-        ? `Grupo ${item.game.groupName}`
-        : item.game.stage;
+    const label = groupLabelForRevealedGame(tab.id, item.game);
     grouped.set(label, [...(grouped.get(label) ?? []), item]);
   }
 
@@ -1027,6 +1047,12 @@ function compareRevealedGames(
   firstGame: RevealedGroupGame,
   secondGame: RevealedGroupGame,
 ) {
+  const liveOrder = liveRank(firstGame.game) - liveRank(secondGame.game);
+
+  if (liveOrder !== 0) {
+    return liveOrder;
+  }
+
   if (firstGame.game.groupName && secondGame.game.groupName) {
     const groupOrder = firstGame.game.groupName.localeCompare(
       secondGame.game.groupName,
@@ -1042,6 +1068,18 @@ function compareRevealedGames(
   return (
     Date.parse(firstGame.game.startsAt) - Date.parse(secondGame.game.startsAt)
   );
+}
+
+function groupLabelForRevealedGame(tabId: string, game: Game) {
+  if ((tabId === "group" || tabId === "live") && game.groupName) {
+    return `Grupo ${game.groupName}`;
+  }
+
+  return game.stage;
+}
+
+function liveRank(game: Game) {
+  return game.status === "live" ? 0 : 1;
 }
 
 function compareRevealedGroupLabels(firstLabel: string, secondLabel: string) {
