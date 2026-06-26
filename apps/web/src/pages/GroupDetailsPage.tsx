@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -686,7 +686,7 @@ function ConfirmDialog({
   open,
   title,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   confirmLabel: string;
   loading: boolean;
   onClose: () => void;
@@ -736,6 +736,9 @@ function RevealedGuessesCard({
   const [expandedGames, setExpandedGames] = useState<Set<string>>(() =>
     readStringSet(expandedRevealedGuessesStorageKey),
   );
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     if (!stageTabs.length) {
@@ -777,6 +780,20 @@ function RevealedGuessesCard({
       }
 
       return nextGames;
+    });
+  }
+
+  function toggleExpandedGroup(groupName: string, expanded: boolean) {
+    setExpandedGroups((currentGroups) => {
+      const nextGroups = new Set(currentGroups);
+
+      if (expanded) {
+        nextGroups.add(groupName);
+      } else {
+        nextGroups.delete(groupName);
+      }
+
+      return nextGroups;
     });
   }
 
@@ -833,23 +850,13 @@ function RevealedGuessesCard({
         )}
 
         {groupedGames.map(([groupName, groupGames]) => (
-          <Stack key={groupName} gap={1.25}>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Stack direction="row" gap={1} alignItems="center">
-                <Typography variant="h6">{groupName}</Typography>
-                {groupGames.some(({ game }) => game.status === "live") && (
-                  <Chip color="success" label="Ao vivo" size="small" />
-                )}
-              </Stack>
-              <Typography color="text.secondary">
-                {groupGames.length} jogo{groupGames.length === 1 ? "" : "s"}
-              </Typography>
-            </Stack>
-
+          <RevealedGroupCard
+            expanded={expandedGroups.has(groupName)}
+            groupGames={groupGames}
+            groupName={groupName}
+            key={groupName}
+            onToggle={(expanded) => toggleExpandedGroup(groupName, expanded)}
+          >
             {groupGames.map(({ game, guesses }) => (
               <RevealedGameCard
                 expanded={expandedGames.has(game.id)}
@@ -859,10 +866,86 @@ function RevealedGuessesCard({
                 onToggle={(expanded) => toggleExpandedGame(game.id, expanded)}
               />
             ))}
-          </Stack>
+          </RevealedGroupCard>
         ))}
       </Stack>
     </Paper>
+  );
+}
+
+function RevealedGroupCard({
+  children,
+  expanded,
+  groupGames,
+  groupName,
+  onToggle,
+}: {
+  children: ReactNode;
+  expanded: boolean;
+  groupGames: RevealedGroupGame[];
+  groupName: string;
+  onToggle: (expanded: boolean) => void;
+}) {
+  const hasLiveGame = groupGames.some(({ game }) => game.status === "live");
+  const featuredGame = findFeaturedRevealedGame(groupGames);
+
+  return (
+    <Accordion
+      disableGutters
+      expanded={expanded}
+      onChange={(_, nextExpanded) => onToggle(nextExpanded)}
+      sx={{
+        border: "1px solid rgba(15, 23, 42, .1)",
+        borderRadius: 2,
+        boxShadow: "none",
+        overflow: "hidden",
+        "&:before": { display: "none" },
+      }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        sx={{
+          bgcolor: hasLiveGame ? "rgba(22, 163, 74, .08)" : "background.paper",
+          minHeight: 0,
+          px: 2,
+          py: 1.5,
+          "& .MuiAccordionSummary-content": {
+            my: 0,
+            minWidth: 0,
+          },
+        }}
+      >
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          gap={1}
+          justifyContent="space-between"
+          sx={{ minWidth: 0, width: "100%" }}
+        >
+          <Stack gap={0.5} sx={{ minWidth: 0 }}>
+            <Stack direction="row" gap={1} alignItems="center">
+              <Typography variant="h6">{groupName}</Typography>
+              {hasLiveGame && (
+                <Chip color="success" label="Ao vivo" size="small" />
+              )}
+            </Stack>
+
+            {featuredGame && (
+              <Typography color="text.secondary" noWrap>
+                Destaque: {formatRevealedGameSummary(featuredGame)}
+              </Typography>
+            )}
+          </Stack>
+
+          <Typography color="text.secondary" sx={{ flexShrink: 0 }}>
+            {groupGames.length} jogo{groupGames.length === 1 ? "" : "s"}
+          </Typography>
+        </Stack>
+      </AccordionSummary>
+
+      <AccordionDetails sx={{ p: 2, pt: 0 }}>
+        <Stack gap={1.25}>{children}</Stack>
+      </AccordionDetails>
+    </Accordion>
   );
 }
 
@@ -1038,9 +1121,7 @@ function groupRevealedGamesForTab(tab?: RevealedStageTab) {
           RevealedGroupGame[],
         ],
     )
-    .sort(([firstLabel], [secondLabel]) =>
-      compareRevealedGroupLabels(firstLabel, secondLabel),
-    );
+    .sort(compareRevealedGroupedEntries);
 }
 
 function compareRevealedGames(
@@ -1080,6 +1161,62 @@ function groupLabelForRevealedGame(tabId: string, game: Game) {
 
 function liveRank(game: Game) {
   return game.status === "live" ? 0 : 1;
+}
+
+function compareRevealedGroupedEntries(
+  firstEntry: [string, RevealedGroupGame[]],
+  secondEntry: [string, RevealedGroupGame[]],
+) {
+  const firstGame = findFeaturedRevealedGame(firstEntry[1]);
+  const secondGame = findFeaturedRevealedGame(secondEntry[1]);
+
+  if (firstGame && secondGame) {
+    const liveOrder = liveRank(firstGame.game) - liveRank(secondGame.game);
+
+    if (liveOrder !== 0) {
+      return liveOrder;
+    }
+
+    const recencyOrder =
+      getRevealedGameDistanceFromNow(firstGame.game) -
+      getRevealedGameDistanceFromNow(secondGame.game);
+
+    if (recencyOrder !== 0) {
+      return recencyOrder;
+    }
+  }
+
+  return compareRevealedGroupLabels(firstEntry[0], secondEntry[0]);
+}
+
+function findFeaturedRevealedGame(groupGames: RevealedGroupGame[]) {
+  return [...groupGames].sort((firstGame, secondGame) => {
+    const liveOrder = liveRank(firstGame.game) - liveRank(secondGame.game);
+
+    if (liveOrder !== 0) {
+      return liveOrder;
+    }
+
+    return (
+      getRevealedGameDistanceFromNow(firstGame.game) -
+      getRevealedGameDistanceFromNow(secondGame.game)
+    );
+  })[0];
+}
+
+function getRevealedGameDistanceFromNow(game: Game) {
+  return Math.abs(Date.now() - Date.parse(game.startsAt));
+}
+
+function formatRevealedGameSummary({ game }: RevealedGroupGame) {
+  const gameTime = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+  }).format(new Date(game.startsAt));
+
+  return `${game.teamHome} x ${game.teamAway} · ${gameTime}`;
 }
 
 function compareRevealedGroupLabels(firstLabel: string, secondLabel: string) {
