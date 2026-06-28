@@ -67,23 +67,44 @@ export async function getWorldCupGames() {
 }
 
 export function applyOfficialStageOrderOverrides(games: Game[]) {
-  const stageIndexes = new Map<string, number>();
+  const officialStartsAtByGameId = new Map<string, string>();
+  const gamesByStage = new Map<string, Game[]>();
 
-  return games.map((game) => {
+  for (const game of games) {
     if (!shouldOverrideByStageOrder(game.stage)) {
-      return game;
+      continue;
     }
 
-    const stageIndex = stageIndexes.get(game.stage) ?? 0;
-    const startsAt = officialStartsAtForStageIndex(game.stage, stageIndex);
-    stageIndexes.set(game.stage, stageIndex + 1);
+    gamesByStage.set(game.stage, [
+      ...(gamesByStage.get(game.stage) ?? []),
+      game,
+    ]);
+  }
 
-    return startsAt ? { ...game, startsAt } : game;
-  });
+  for (const [stage, stageGames] of gamesByStage.entries()) {
+    const sortedStageGames = [...stageGames].sort(compareGamesByApiStartsAt);
+
+    for (const [stageIndex, game] of sortedStageGames.entries()) {
+      const startsAt = officialStartsAtForStageIndex(stage, stageIndex);
+
+      if (startsAt) {
+        officialStartsAtByGameId.set(game.id, startsAt);
+      }
+    }
+  }
+
+  return games.map((game) => ({
+    ...game,
+    startsAt: officialStartsAtByGameId.get(game.id) ?? game.startsAt,
+  }));
 }
 
 function shouldOverrideByStageOrder(stage: string) {
   return stage !== "Fase de grupos" && stage !== "Copa do Mundo";
+}
+
+function compareGamesByApiStartsAt(firstGame: Game, secondGame: Game) {
+  return Date.parse(firstGame.startsAt) - Date.parse(secondGame.startsAt);
 }
 
 export async function getWorldCupGame(gameId: string) {

@@ -210,6 +210,32 @@ describe("applyOfficialStageOrderOverrides", () => {
       expectedTimes,
     );
   });
+
+  it("usa a ordem cronologica da API antes de sobrescrever horarios", () => {
+    const apiGames = [
+      game({
+        id: "oitavas-2",
+        stage: "Oitavas de final",
+        startsAt: "2026-07-04T23:00:00.000Z",
+      }),
+      game({
+        id: "oitavas-1",
+        stage: "Oitavas de final",
+        startsAt: "2026-07-04T19:00:00.000Z",
+      }),
+    ];
+
+    const gamesById = new Map(
+      applyOfficialStageOrderOverrides(apiGames).map((item) => [item.id, item]),
+    );
+
+    expect(formatBrazilTime(gamesById.get("oitavas-1")?.startsAt ?? null)).toBe(
+      "14:00",
+    );
+    expect(formatBrazilTime(gamesById.get("oitavas-2")?.startsAt ?? null)).toBe(
+      "18:00",
+    );
+  });
 });
 
 function game(overrides: Partial<ReturnType<typeof baseGame>>) {
