@@ -86,6 +86,64 @@ describe("officialStartsAtForGame", () => {
 
     expect(startsAt).toBe("2026-06-12T19:00:00.000Z");
   });
+
+  it.each([
+    ["África do Sul", "Canadá", "2026-06-28T19:00:00.000Z"],
+    ["Brasil", "Japão", "2026-06-29T17:00:00.000Z"],
+    ["Alemanha", "Paraguai", "2026-06-29T20:30:00.000Z"],
+    ["Holanda", "Marrocos", "2026-06-30T01:00:00.000Z"],
+    ["Costa do Marfim", "Noruega", "2026-06-30T17:00:00.000Z"],
+    ["França", "Suécia", "2026-06-30T21:00:00.000Z"],
+    ["México", "Equador", "2026-07-01T01:00:00.000Z"],
+    ["Inglaterra", "RD Congo", "2026-07-01T16:00:00.000Z"],
+    ["Bélgica", "Senegal", "2026-07-01T20:00:00.000Z"],
+    ["Estados Unidos", "Bósnia", "2026-07-02T00:00:00.000Z"],
+    ["Espanha", "Áustria", "2026-07-02T19:00:00.000Z"],
+    ["Portugal", "Croácia", "2026-07-02T23:00:00.000Z"],
+    ["Suíça", "Argélia", "2026-07-03T03:00:00.000Z"],
+    ["Austrália", "Egito", "2026-07-03T18:00:00.000Z"],
+    ["Argentina", "Cabo Verde", "2026-07-03T22:00:00.000Z"],
+    ["Colômbia", "Gana", "2026-07-04T01:30:00.000Z"],
+  ])(
+    "usa a tabela verdade dos 16 avos para %s x %s",
+    (teamHome, teamAway, expectedStartsAt) => {
+      const startsAt = officialStartsAtForGame({
+        externalId: "test",
+        groupName: undefined,
+        id: "test",
+        lastLiveSyncAt: new Date().toISOString(),
+        liveMinute: null,
+        scoreAway: null,
+        scoreHome: null,
+        stage: "16 avos de final",
+        startsAt: "2026-01-01T00:00:00.000Z",
+        status: "scheduled",
+        teamAway,
+        teamHome,
+      });
+
+      expect(startsAt).toBe(expectedStartsAt);
+    },
+  );
+
+  it("usa horario oficial por times mesmo se a API mandar fase generica", () => {
+    const startsAt = officialStartsAtForGame({
+      externalId: "test",
+      groupName: undefined,
+      id: "test",
+      lastLiveSyncAt: new Date().toISOString(),
+      liveMinute: null,
+      scoreAway: null,
+      scoreHome: null,
+      stage: "Copa do Mundo",
+      startsAt: "2026-06-28T18:00:00.000Z",
+      status: "scheduled",
+      teamAway: "Canadá",
+      teamHome: "África do Sul",
+    });
+
+    expect(startsAt).toBe("2026-06-28T19:00:00.000Z");
+  });
 });
 
 function brazilToIsoForTest(value: string) {

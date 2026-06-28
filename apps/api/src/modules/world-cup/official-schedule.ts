@@ -81,22 +81,70 @@ export const officialGames: OfficialGame[] = [
   game("Colômbia", "Portugal", "K", "2026-06-27T20:30"),
   game("Jordânia", "Argentina", "J", "2026-06-27T23:00"),
   game("Argélia", "Áustria", "J", "2026-06-27T23:00"),
-  game("2º A", "2º B", undefined, "2026-06-28T16:00", "16 avos de final"),
-  game("1º C", "2º F", undefined, "2026-06-29T14:00", "16 avos de final"),
-  game("1º E", "3º ABCDF", undefined, "2026-06-29T17:30", "16 avos de final"),
-  game("1º F", "2º C", undefined, "2026-06-29T22:00", "16 avos de final"),
-  game("2º E", "2º I", undefined, "2026-06-30T14:00", "16 avos de final"),
-  game("1º I", "3º CDFGH", undefined, "2026-06-30T18:00", "16 avos de final"),
-  game("1º A", "3º CEFHI", undefined, "2026-06-30T22:00", "16 avos de final"),
-  game("1º L", "3º EHIJK", undefined, "2026-07-01T13:00", "16 avos de final"),
-  game("1º G", "3º AEHIJ", undefined, "2026-07-01T17:00", "16 avos de final"),
-  game("1º D", "3º BEFIJ", undefined, "2026-07-01T21:00", "16 avos de final"),
-  game("1º H", "2º J", undefined, "2026-07-02T16:00", "16 avos de final"),
-  game("2º K", "2º L", undefined, "2026-07-02T20:00", "16 avos de final"),
-  game("1º B", "3º EFGIJ", undefined, "2026-07-03T00:00", "16 avos de final"),
-  game("2º D", "2º G", undefined, "2026-07-03T15:00", "16 avos de final"),
-  game("1º J", "2º H", undefined, "2026-07-03T19:00", "16 avos de final"),
-  game("1º K", "3º DEIJL", undefined, "2026-07-03T22:30", "16 avos de final"),
+  game(
+    "África do Sul",
+    "Canadá",
+    undefined,
+    "2026-06-28T16:00",
+    "16 avos de final",
+  ),
+  game("Brasil", "Japão", undefined, "2026-06-29T14:00", "16 avos de final"),
+  game(
+    "Alemanha",
+    "Paraguai",
+    undefined,
+    "2026-06-29T17:30",
+    "16 avos de final",
+  ),
+  game(
+    "Holanda",
+    "Marrocos",
+    undefined,
+    "2026-06-29T22:00",
+    "16 avos de final",
+  ),
+  game(
+    "Costa do Marfim",
+    "Noruega",
+    undefined,
+    "2026-06-30T14:00",
+    "16 avos de final",
+  ),
+  game("França", "Suécia", undefined, "2026-06-30T18:00", "16 avos de final"),
+  game("México", "Equador", undefined, "2026-06-30T22:00", "16 avos de final"),
+  game(
+    "Inglaterra",
+    "RD Congo",
+    undefined,
+    "2026-07-01T13:00",
+    "16 avos de final",
+  ),
+  game("Bélgica", "Senegal", undefined, "2026-07-01T17:00", "16 avos de final"),
+  game(
+    "Estados Unidos",
+    "Bósnia",
+    undefined,
+    "2026-07-01T21:00",
+    "16 avos de final",
+  ),
+  game("Espanha", "Áustria", undefined, "2026-07-02T16:00", "16 avos de final"),
+  game(
+    "Portugal",
+    "Croácia",
+    undefined,
+    "2026-07-02T20:00",
+    "16 avos de final",
+  ),
+  game("Suíça", "Argélia", undefined, "2026-07-03T00:00", "16 avos de final"),
+  game("Austrália", "Egito", undefined, "2026-07-03T15:00", "16 avos de final"),
+  game(
+    "Argentina",
+    "Cabo Verde",
+    undefined,
+    "2026-07-03T19:00",
+    "16 avos de final",
+  ),
+  game("Colômbia", "Gana", undefined, "2026-07-03T22:30", "16 avos de final"),
   game(
     "Venc. Segunda fase 3",
     "Venc. Segunda fase 4",
@@ -215,8 +263,19 @@ const officialStartsAt = new Map(
   officialGames.map((item) => [officialKey(item), brazilToIso(item.startsAt)]),
 );
 
+const officialStartsAtByTeams = new Map(
+  officialGames.map((item) => [
+    officialTeamsKey(item),
+    brazilToIso(item.startsAt),
+  ]),
+);
+
 export function officialStartsAtForGame(game: Game) {
-  return officialStartsAt.get(officialGameKey(game)) ?? null;
+  return (
+    officialStartsAt.get(officialGameKey(game)) ??
+    officialStartsAtByTeams.get(officialGameTeamsKey(game)) ??
+    null
+  );
 }
 
 export function officialGamesAsMocks(): Game[] {
@@ -263,6 +322,14 @@ function officialGameKey(
     normalizeGroup(game.groupName),
     ...sortTeams(game.teamHome, game.teamAway),
   ].join("|");
+}
+
+function officialTeamsKey({ away, home }: Pick<OfficialGame, "away" | "home">) {
+  return sortTeams(home, away).join("|");
+}
+
+function officialGameTeamsKey(game: Pick<Game, "teamAway" | "teamHome">) {
+  return sortTeams(game.teamHome, game.teamAway).join("|");
 }
 
 function sortTeams(home: string, away: string) {
