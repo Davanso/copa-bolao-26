@@ -278,6 +278,14 @@ export function officialStartsAtForGame(game: Game) {
   );
 }
 
+export function officialStartsAtForStageIndex(stage: string, index: number) {
+  const officialGame = officialGames.filter((item) => item.stage === stage)[
+    index
+  ];
+
+  return officialGame ? brazilToIso(officialGame.startsAt) : null;
+}
+
 export function officialGamesAsMocks(): Game[] {
   return officialGames.map((item, index) => ({
     externalId: `official-${index + 1}`,

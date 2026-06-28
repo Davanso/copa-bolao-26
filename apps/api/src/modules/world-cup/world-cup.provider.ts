@@ -2,6 +2,7 @@
 import {
   officialGamesAsMocks,
   officialStartsAtForGame,
+  officialStartsAtForStageIndex,
 } from "./official-schedule.js";
 import { translateTeam } from "./team-translations.js";
 
@@ -57,10 +58,32 @@ export async function getWorldCupGames() {
   }
 
   const payload = (await response.json()) as WorldCupApiResponse;
-  cachedGames = (payload.games ?? []).map(normalizeGame);
+  cachedGames = applyOfficialStageOrderOverrides(
+    (payload.games ?? []).map(normalizeGame),
+  );
   cachedAt = Date.now();
 
   return cachedGames;
+}
+
+export function applyOfficialStageOrderOverrides(games: Game[]) {
+  const stageIndexes = new Map<string, number>();
+
+  return games.map((game) => {
+    if (!shouldOverrideByStageOrder(game.stage)) {
+      return game;
+    }
+
+    const stageIndex = stageIndexes.get(game.stage) ?? 0;
+    const startsAt = officialStartsAtForStageIndex(game.stage, stageIndex);
+    stageIndexes.set(game.stage, stageIndex + 1);
+
+    return startsAt ? { ...game, startsAt } : game;
+  });
+}
+
+function shouldOverrideByStageOrder(stage: string) {
+  return stage !== "Fase de grupos" && stage !== "Copa do Mundo";
 }
 
 export async function getWorldCupGame(gameId: string) {

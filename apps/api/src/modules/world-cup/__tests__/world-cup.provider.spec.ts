@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { apiLocalDateToBrazilInstant } from "../world-cup.provider.js";
+import {
+  apiLocalDateToBrazilInstant,
+  applyOfficialStageOrderOverrides,
+} from "../world-cup.provider.js";
 import {
   officialGames,
   officialStartsAtForGame,
@@ -144,7 +147,94 @@ describe("officialStartsAtForGame", () => {
 
     expect(startsAt).toBe("2026-06-28T19:00:00.000Z");
   });
+
+  it.each([
+    [
+      "Oitavas de final",
+      ["14:00", "18:00", "17:00", "21:00", "16:00", "21:00", "13:00", "17:00"],
+    ],
+    ["Quartas de final", ["17:00", "16:00", "18:00", "22:00"]],
+    ["Semifinal", ["16:00", "16:00"]],
+    ["Final", ["16:00"]],
+    ["Disputa de terceiro lugar", ["18:00"]],
+  ])("mantem a ordem oficial de horarios para %s", (stage, expectedTimes) => {
+    const stageTimes = officialGames
+      .filter((officialGame) => officialGame.stage === stage)
+      .map((officialGame) => {
+        const startsAt = officialStartsAtForGame({
+          externalId: "test",
+          groupName: officialGame.groupName,
+          id: "test",
+          lastLiveSyncAt: new Date().toISOString(),
+          liveMinute: null,
+          scoreAway: null,
+          scoreHome: null,
+          stage: officialGame.stage,
+          startsAt: "2026-01-01T00:00:00.000Z",
+          status: "scheduled",
+          teamAway: officialGame.away,
+          teamHome: officialGame.home,
+        });
+
+        return formatBrazilTime(startsAt);
+      });
+
+    expect(stageTimes).toEqual(expectedTimes);
+  });
 });
+
+describe("applyOfficialStageOrderOverrides", () => {
+  it.each([
+    [
+      "Oitavas de final",
+      ["14:00", "18:00", "17:00", "21:00", "16:00", "21:00", "13:00", "17:00"],
+    ],
+    ["Quartas de final", ["17:00", "16:00", "18:00", "22:00"]],
+    ["Semifinal", ["16:00", "16:00"]],
+    ["Final", ["16:00"]],
+    ["Disputa de terceiro lugar", ["18:00"]],
+  ])("sobrescreve horarios ruins da API para %s", (stage, expectedTimes) => {
+    const apiGames = expectedTimes.map((_, index) =>
+      game({
+        id: `${stage}-${index}`,
+        stage,
+        startsAt: "2026-01-01T18:00:00.000Z",
+        teamAway: `Visitante ${index + 1}`,
+        teamHome: `Mandante ${index + 1}`,
+      }),
+    );
+
+    const games = applyOfficialStageOrderOverrides(apiGames);
+
+    expect(games.map((item) => formatBrazilTime(item.startsAt))).toEqual(
+      expectedTimes,
+    );
+  });
+});
+
+function game(overrides: Partial<ReturnType<typeof baseGame>>) {
+  return {
+    ...baseGame(),
+    ...overrides,
+  };
+}
+
+function baseGame() {
+  return {
+    externalId: "test",
+    groupName: undefined,
+    id: "test",
+    lastLiveSyncAt: new Date().toISOString(),
+    liveMinute: null,
+    scoreAway: null,
+    scoreHome: null,
+    stage: "Fase de grupos",
+    startsAt: "2026-01-01T00:00:00.000Z",
+    status: "scheduled" as const,
+    teamAway: "Visitante",
+    teamHome: "Mandante",
+  };
+}
 
 function brazilToIsoForTest(value: string) {
   const [date, time] = value.split("T");
@@ -154,4 +244,16 @@ function brazilToIsoForTest(value: string) {
   return new Date(
     Date.UTC(year, month - 1, day, hour + 3, minute),
   ).toISOString();
+}
+
+function formatBrazilTime(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
 }
