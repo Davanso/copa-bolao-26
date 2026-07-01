@@ -5,9 +5,14 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Grid,
+  IconButton,
   Paper,
   Stack,
+  SvgIcon,
   Tab,
   Tabs,
   Typography,
@@ -412,17 +417,118 @@ function RankingPointsBreakdown({
   align?: "center" | "left" | "right";
   item: RankingItem;
 }) {
+  const [open, setOpen] = useState(false);
   const resultOnlyHits = Math.max(item.scoredGuesses - item.exactScores, 0);
 
   return (
-    <Stack gap={0.25} textAlign={{ xs: "left", sm: align }}>
-      <Typography color="text.secondary" variant="body2">
-        {resultOnlyHits} resultado{resultOnlyHits === 1 ? "" : "s"} acertado
-        {resultOnlyHits === 1 ? "" : "s"} + {item.exactScores} placar
-        {item.exactScores === 1 ? "" : "es"} cravado
-        {item.exactScores === 1 ? "" : "s"}
-      </Typography>
-    </Stack>
+    <>
+      <Stack
+        direction="row"
+        gap={0.75}
+        justifyContent={{ xs: "center", sm: align }}
+        textAlign={{ xs: "center", sm: align }}
+        alignItems="center"
+        sx={{
+          flexWrap: "wrap",
+          width: "100%",
+        }}
+      >
+        <Typography color="text.secondary" variant="body2">
+          {item.totalPoints} ponto{item.totalPoints === 1 ? "" : "s"} •{" "}
+          {resultOnlyHits} resultado{resultOnlyHits === 1 ? "" : "s"} +{" "}
+          {item.exactScores} cravado{item.exactScores === 1 ? "" : "s"}
+        </Typography>
+        <IconButton
+          aria-label={`Ver detalhes dos pontos de ${item.username}`}
+          size="small"
+          onClick={() => setOpen(true)}
+        >
+          <HelpIcon />
+        </IconButton>
+      </Stack>
+
+      <RankingPointsDialog
+        item={item}
+        open={open}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  );
+}
+
+function RankingPointsDialog({
+  item,
+  onClose,
+  open,
+}: {
+  item: RankingItem;
+  onClose: () => void;
+  open: boolean;
+}) {
+  const stagePoints = item.pointsByStage ?? [];
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Detalhe dos pontos de {item.username}</DialogTitle>
+      <DialogContent>
+        <Stack gap={1.5} sx={{ pt: 1 }}>
+          <Typography color="text.secondary">
+            Cada grupo pode ter pontuação personalizada por fase. Aqui está a
+            soma real que formou os {item.totalPoints} pontos deste ranking.
+          </Typography>
+
+          {stagePoints.length === 0 ? (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography color="text.secondary">
+                Ainda não há pontos computados em jogos finalizados.
+              </Typography>
+            </Paper>
+          ) : (
+            <Stack gap={1}>
+              {stagePoints.map((stage) => {
+                const resultOnlyHits = Math.max(
+                  stage.scoredGuesses - stage.exactScores,
+                  0,
+                );
+
+                return (
+                  <Paper key={stage.stage} variant="outlined" sx={{ p: 1.5 }}>
+                    <Stack
+                      direction={{ xs: "column", sm: "row" }}
+                      gap={1}
+                      justifyContent="space-between"
+                    >
+                      <Box>
+                        <Typography fontWeight={900}>{stage.stage}</Typography>
+                        <Typography color="text.secondary" variant="body2">
+                          {resultOnlyHits} resultado
+                          {resultOnlyHits === 1 ? "" : "s"} +{" "}
+                          {stage.exactScores} cravado
+                          {stage.exactScores === 1 ? "" : "s"}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        color="primary"
+                        label={`${stage.points} ponto${stage.points === 1 ? "" : "s"}`}
+                        sx={{ alignSelf: { xs: "flex-start", sm: "center" } }}
+                      />
+                    </Stack>
+                  </Paper>
+                );
+              })}
+            </Stack>
+          )}
+        </Stack>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function HelpIcon() {
+  return (
+    <SvgIcon fontSize="small" viewBox="0 0 24 24">
+      <path d="M11 18h2v-2h-2v2Zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8Zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4Z" />
+    </SvgIcon>
   );
 }
 

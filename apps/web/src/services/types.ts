@@ -39,6 +39,14 @@ export type RankingItem = {
   exactScores: number;
   scoredGuesses: number;
   guessesCount: number;
+  pointsByStage?: RankingStagePoints[];
+};
+
+export type RankingStagePoints = {
+  exactScores: number;
+  points: number;
+  scoredGuesses: number;
+  stage: string;
 };
 
 export type PrizeRule = {
